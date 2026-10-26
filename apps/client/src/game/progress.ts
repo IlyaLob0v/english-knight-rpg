@@ -15,15 +15,42 @@ export interface ModuleProgress {
   bossAttempts: number;
 }
 
+/** A building that stands in the city. Keyed by building_id, so reassigning it in the track keeps it built. */
+export interface BuildingProgress {
+  builtAt: string;
+  /** Last known state; the live state comes from FSRS. A change from true to false is a repair. */
+  damaged: boolean;
+  repairs: number;
+}
+
 export interface PlayerProgress {
-  version: 1;
+  version: 2;
   modules: Record<string, ModuleProgress>;
   /** story_ids already shown, so intros play once. */
   seenStories: string[];
+  xp: number;
+  kp: number;
+  buildings: Record<string, BuildingProgress>;
+  /** Local days (YYYY-MM-DD) with a completed patrol, in order. */
+  patrolDays: string[];
 }
 
 export function emptyProgress(): PlayerProgress {
-  return { version: 1, modules: {}, seenStories: [] };
+  return { version: 2, modules: {}, seenStories: [], xp: 0, kp: 0, buildings: {}, patrolDays: [] };
+}
+
+/** Brings saved progress of any earlier version up to date; nothing the player did is lost. */
+export function migrateProgress(saved: unknown): PlayerProgress {
+  const p = (saved ?? {}) as Partial<PlayerProgress> & { version?: number };
+  return {
+    ...emptyProgress(),
+    ...p,
+    version: 2,
+    modules: p.modules ?? {},
+    seenStories: p.seenStories ?? [],
+    buildings: p.buildings ?? {},
+    patrolDays: p.patrolDays ?? [],
+  };
 }
 
 export function moduleProgress(p: PlayerProgress, moduleId: string): ModuleProgress {
@@ -95,6 +122,10 @@ export function recordBossResult(p: PlayerProgress, moduleId: string, r: { passe
       [moduleId]: { ...mp, bossPassed: mp.bossPassed || r.passed, bestScore: Math.max(mp.bestScore, r.scaled), bossAttempts: mp.bossAttempts + 1 },
     },
   };
+}
+
+export function addCurrency(p: PlayerProgress, r: { xp: number; kp: number }): PlayerProgress {
+  return { ...p, xp: p.xp + r.xp, kp: Math.max(0, p.kp + r.kp) };
 }
 
 export function markStorySeen(p: PlayerProgress, storyId: string): PlayerProgress {

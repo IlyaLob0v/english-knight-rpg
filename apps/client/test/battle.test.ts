@@ -93,3 +93,33 @@ describe("Battle: boss", () => {
     expect(b.state).toBe("lost");
   });
 });
+
+describe("Battle: patrol and repair", () => {
+  it("asks the scripted tasks in order and cannot be lost", () => {
+    const script = module.tasks.slice(0, 4).map((id) => tasks.get(id)!);
+    const b = new Battle({ kind: "patrol", enemy: enemy("gate_rat"), script, knightMaxHp: 40 });
+    const asked: string[] = [];
+    while (b.state === "ongoing") {
+      const task = b.nextTask();
+      asked.push(task.task_id);
+      b.resolve(task, checkAnswer(task, answerFor(task, "wrong")));
+      expect(b.knightHp).toBeGreaterThan(0);
+    }
+    expect(asked).toEqual(script.map((t) => t.task_id));
+    expect(b.state).toBe("won");
+    expect(b.enemyHp).toBe(0);
+    expect(b.wrong).toBe(4);
+  });
+
+  it("needs tasks", () => {
+    expect(() => new Battle({ kind: "repair", enemy: enemy("gate_rat"), script: [] })).toThrow(/needs tasks/);
+  });
+
+  it("counts hints", () => {
+    const b = new Battle({ kind: "encounter", enemy: enemy("ash_imp"), module, tasks, hints: 1 });
+    expect(b.spendHint()).toBe(true);
+    expect(b.spendHint()).toBe(false);
+    expect(b.hintsLeft).toBe(0);
+    expect(new Battle({ kind: "encounter", enemy: enemy("ash_imp"), module, tasks }).hintsLeft).toBe(Infinity);
+  });
+});

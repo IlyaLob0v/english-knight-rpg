@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://knight.example.com/schemas/progression.schema.json",
+  "title": "Progression rules",
+  "description": "Game economy and the daily loop: XP and levels, KP rewards, the daily patrol and building repair. Balancing is an edit of this file only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "knight", "levels", "rewards", "patrol", "repair"],
+  "$defs": {
+    "reward": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "xp": { "type": "integer", "minimum": 0 },
+        "kp": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": "1.0" },
+    "knight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_hp", "hints_per_battle"],
+      "properties": {
+        "base_hp": { "type": "integer", "minimum": 1 },
+        "hints_per_battle": { "type": "integer", "minimum": 0, "description": "Hints the knight can open in one battle; the hint_charges building bonus adds to it." }
+      }
+    },
+    "levels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["xp_to_reach", "hp_per_level"],
+      "properties": {
+        "xp_to_reach": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "integer", "minimum": 0 },
+          "description": "Total XP needed for level 1, 2, 3…; starts with 0 and grows."
+        },
+        "hp_per_level": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "rewards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["answer_correct", "encounter_won", "boss_passed", "patrol_completed", "building_repaired"],
+      "properties": {
+        "answer_correct": { "$ref": "#/$defs/reward", "description": "Per correct answer, multiplied by the task difficulty." },
+        "answer_typo": { "$ref": "#/$defs/reward", "description": "Per typo (right grammar, wrong spelling)." },
+        "encounter_won": { "$ref": "#/$defs/reward" },
+        "boss_passed": { "$ref": "#/$defs/reward", "description": "Only the first time a module's boss is defeated." },
+        "patrol_completed": { "$ref": "#/$defs/reward", "description": "Once per day." },
+        "building_repaired": { "$ref": "#/$defs/reward" }
+      }
+    },
+    "patrol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["size", "task_cooldown_days", "enemies"],
+      "properties": {
+        "size": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "task_cooldown_days": { "type": "number", "minimum": 0, "description": "A task is not repeated in patrols within this many days if its concept has another task." },
+        "enemies": { "type": "array", "minItems": 1, "items": { "type": "string" }, "description": "Who the knight meets on patrol and at repairs; not bosses." }
+      }
+    },
+    "repair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["threshold", "task_count"],
+      "properties": {
+        "threshold": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1, "description": "A building needs repair when any studied concept of its module has a recall probability below this." },
+        "task_count": { "type": "integer", "minimum": 1, "maximum": 30 }
+      }
+    }
+  }
+}

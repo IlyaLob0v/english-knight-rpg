@@ -6,6 +6,7 @@ import buildingsSchema from "../schemas/buildings.schema.json" with { type: "jso
 import enemiesSchema from "../schemas/enemies.schema.json" with { type: "json" };
 import errorsSchema from "../schemas/errors.schema.json" with { type: "json" };
 import storySchema from "../schemas/story.schema.json" with { type: "json" };
+import progressionSchema from "../schemas/progression.schema.json" with { type: "json" };
 import { normalizeAnswer, tokenize } from "./normalize.js";
 import type {
   Building,
@@ -13,6 +14,7 @@ import type {
   Enemy,
   ErrorTaxonomy,
   Module,
+  Progression,
   SourceFile,
   Story,
   Task,
@@ -38,6 +40,7 @@ export interface ValidatedContent {
   buildings: Building[];
   enemies: Enemy[];
   stories: Story[];
+  progression?: Progression;
 }
 
 export interface ValidationResult {
@@ -56,6 +59,7 @@ const validators = {
   enemies: ajv.compile(enemiesSchema),
   errors: ajv.compile(errorsSchema),
   story: ajv.compile(storySchema),
+  progression: ajv.compile(progressionSchema),
 };
 
 function schemaPass<T>(files: SourceFile[], validate: ValidateFunction, issues: Issue[]): SourceFile<T>[] {
@@ -96,9 +100,13 @@ export function validateContent(source: ContentSource): ValidationResult {
   const buildingFiles = schemaPass<{ buildings: Building[] }>(source.buildings, validators.buildings, issues);
   const enemyFiles = schemaPass<{ enemies: Enemy[] }>(source.enemies, validators.enemies, issues);
   const storyFiles = schemaPass<Story>(source.stories ?? [], validators.story, issues);
+  const progressionFiles = schemaPass<Progression>(source.progression ?? [], validators.progression, issues);
 
   if (source.taxonomy.length !== 1) {
     err("taxonomy/", "taxonomy.count", `expected exactly one error taxonomy file, found ${source.taxonomy.length}`);
+  }
+  if ((source.progression?.length ?? 0) > 1) {
+    err("world/", "progression.count", `expected at most one progression file, found ${source.progression!.length}`);
   }
   // Cross-file checks only make sense on schema-valid data; stop here otherwise.
   if (issues.some((i) => i.severity === "error")) return { ok: false, issues };
@@ -236,6 +244,22 @@ export function validateContent(source: ContentSource): ValidationResult {
     }
   }
 
+  // Progression: the level curve and patrol enemies.
+  const progression = progressionFiles[0];
+  if (progression) {
+    const { path, data: pr } = progression;
+    const xp = pr.levels.xp_to_reach;
+    if (xp[0] !== 0) err(path, "progression.levels", "xp_to_reach must start with 0 (level 1)");
+    for (let i = 1; i < xp.length; i++) {
+      if (xp[i]! <= xp[i - 1]!) err(path, "progression.levels", `xp_to_reach must grow: level ${i + 1} needs ${xp[i]} after ${xp[i - 1]}`);
+    }
+    for (const id of pr.patrol.enemies) {
+      const enemy = enemies.get(id);
+      if (!enemy) err(path, "ref.enemy", `patrol enemy "${id}" does not exist`);
+      else if (enemy.role === "boss") err(path, "ref.enemy", `patrol enemy "${id}" is a boss`);
+    }
+  }
+
   const ok = !issues.some((i) => i.severity === "error");
   return {
     ok,
@@ -249,6 +273,7 @@ export function validateContent(source: ContentSource): ValidationResult {
           buildings: [...buildings.values()],
           enemies: [...enemies.values()],
           stories: [...stories.values()],
+          ...(progression ? { progression: progression.data } : {}),
         }
       : undefined,
   };

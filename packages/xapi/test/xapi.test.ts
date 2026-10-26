@@ -16,6 +16,7 @@ describe("StatementBuilder", () => {
       builder.defeated({ ...common, enemyId: "ash_golem" }),
       builder.conceptMastered({ ...common, conceptId: "past_simple.irregular", moduleId: "A1_PastSimple_01", retrievability: 0.93456 }),
       builder.moduleResult({ ...common, moduleId: "A1_PastSimple_01", verb: "passed", scoreRaw: 9, scoreMax: 10 }),
+      builder.repaired({ ...common, buildingId: "forge", moduleId: "A1_PastSimple_01" }),
     ];
     for (const s of all) {
       expect(validateStatement(s)).toMatchObject({ ok: true });
@@ -24,6 +25,7 @@ describe("StatementBuilder", () => {
     }
     expect(all[1]!.verb.id).toBe("https://knight.example.com/xapi/verbs/built");
     expect(all[3]!.verb.id).toBe("http://adlnet.gov/expapi/verbs/mastered");
+    expect(all[5]!.verb.id).toBe("https://knight.example.com/xapi/verbs/repaired");
   });
 
   it("formats durations as ISO 8601", () => {

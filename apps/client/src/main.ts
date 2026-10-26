@@ -3,6 +3,7 @@ import Phaser from "phaser";
 import { Game } from "./game/game.js";
 import { Api, GatewaySink, localSessionStorage, renewGuest, startSession } from "./net/api.js";
 import { BattleScene } from "./scenes/BattleScene.js";
+import { CityScene } from "./scenes/CityScene.js";
 import { MapScene } from "./scenes/MapScene.js";
 import type { Services } from "./scenes/services.js";
 import { IdbJournal, IdbKeyValue, IdbOutboxStore, openPlayerDb, type KeyValue } from "./storage/idb.js";
@@ -83,7 +84,8 @@ async function boot(): Promise<void> {
     height: 600,
     backgroundColor: "#1d2a1f",
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-    scene: [MapScene, BattleScene],
+    // The city is the hub: patrol, repairs and statistics start there; the map leads to new modules.
+    scene: [CityScene, MapScene, BattleScene],
   });
   phaser.registry.set("services", { game, ui } satisfies Services);
 }

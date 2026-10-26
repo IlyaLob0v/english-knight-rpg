@@ -5,7 +5,8 @@ export const KNIGHT_BASE_HP = 30;
 /** Damage of a correct answer when the task has no combat.damage. */
 export const DEFAULT_TASK_DAMAGE = 10;
 
-export type BattleKind = "encounter" | "boss";
+/** encounter and boss belong to a track step; patrol and repair are scripted review sessions from FSRS. */
+export type BattleKind = "encounter" | "boss" | "patrol" | "repair";
 export type BattleState = "ongoing" | "won" | "lost";
 
 export interface Strike {
@@ -18,10 +19,15 @@ export interface Strike {
 export interface BattleSetup {
   kind: BattleKind;
   enemy: Enemy;
-  module: Module;
-  /** Active tasks of the module, by id. */
-  tasks: Map<string, Task>;
+  /** The step's module, for encounter and boss. */
+  module?: Module;
+  /** Active tasks of the module, by id (encounter and boss). */
+  tasks?: Map<string, Task>;
+  /** Patrol and repair: the exact tasks to ask, in order. */
+  script?: Task[];
   knightMaxHp?: number;
+  /** Hints the knight may open in this battle. Unlimited when undefined. */
+  hints?: number;
   /** When each task was last answered, epoch ms; fresh tasks are preferred. */
   lastSeen?: Map<string, number>;
   now?: number;
@@ -32,7 +38,10 @@ export interface BattleSetup {
  * One battle, as pure rules: which task comes next and what an answer does.
  * Knows task ids and concepts, never task text, and draws nothing.
  *
- * An encounter is HP against HP. A boss fight is the module's final check:
+ * An encounter is HP against HP. Patrol and repair are a fixed list of review
+ * tasks: the "enemy" falls as the list is worked through and the knight cannot
+ * lose, because a review session is practice, not a test.
+ * A boss fight is the module's final check:
  * it is won once `ceil(boss_task_count × pass_score)` answers are correct and
  * lost once that is no longer reachable. The HP bars show exactly that, so the
  * boss falls if and only if the share of correct answers reaches pass_score.
@@ -41,7 +50,8 @@ export class Battle {
   readonly id: string;
   readonly kind: BattleKind;
   readonly enemy: Enemy;
-  readonly module: Module;
+  readonly module: Module | undefined;
+  readonly script: Task[] | undefined;
   readonly knightMaxHp: number;
   readonly enemyMaxHp: number;
   /** Boss fight: correct answers needed and wrong answers allowed. */
@@ -50,6 +60,7 @@ export class Battle {
 
   correct = 0;
   wrong = 0;
+  hintsLeft: number;
   private knightLost = 0;
   private enemyLost = 0;
   private readonly used = new Set<string>();
@@ -62,20 +73,44 @@ export class Battle {
     this.kind = s.kind;
     this.enemy = s.enemy;
     this.module = s.module;
+    this.script = s.script;
     this.knightMaxHp = s.knightMaxHp ?? KNIGHT_BASE_HP;
     this.enemyMaxHp = s.enemy.hp;
+    this.hintsLeft = s.hints ?? Infinity;
     this.random = s.random ?? Math.random;
-    const total = s.module.mastery.boss_task_count;
-    this.need = Math.max(1, Math.ceil(total * s.module.mastery.pass_score - 1e-9));
+    this.byConcept = new Map();
+    this.conceptCursor = 0;
+
+    if (s.kind === "patrol" || s.kind === "repair") {
+      if (!s.script?.length) throw new Error(`a ${s.kind} needs tasks`);
+      this.need = s.script.length;
+      this.allowedWrong = s.script.length;
+      return;
+    }
+    const module = s.module;
+    if (!module) throw new Error(`a ${s.kind} battle needs a module`);
+    const total = module.mastery.boss_task_count;
+    this.need = Math.max(1, Math.ceil(total * module.mastery.pass_score - 1e-9));
     this.allowedWrong = Math.max(0, total - this.need);
 
-    this.byConcept = new Map(s.module.concepts.map((c) => [c.concept_id, [] as Task[]]));
-    for (const id of s.module.tasks) {
-      const t = s.tasks.get(id);
+    this.byConcept = new Map(module.concepts.map((c) => [c.concept_id, [] as Task[]]));
+    for (const id of module.tasks) {
+      const t = s.tasks?.get(id);
       if (t) this.byConcept.get(t.concept_id)?.push(t);
     }
-    if (![...this.byConcept.values()].some((l) => l.length)) throw new Error(`module ${s.module.module_id} has no active tasks`);
-    this.conceptCursor = Math.floor(this.random() * s.module.concepts.length);
+    if (![...this.byConcept.values()].some((l) => l.length)) throw new Error(`module ${module.module_id} has no active tasks`);
+    this.conceptCursor = Math.floor(this.random() * module.concepts.length);
+  }
+
+  get scripted(): boolean {
+    return this.script !== undefined;
+  }
+
+  /** Spends a hint; false when none are left. */
+  spendHint(): boolean {
+    if (this.hintsLeft <= 0) return false;
+    this.hintsLeft--;
+    return true;
   }
 
   get answered(): number {
@@ -83,16 +118,20 @@ export class Battle {
   }
 
   get knightHp(): number {
+    // A review session shows mistakes on the bar but never knocks the knight out.
+    if (this.script) return Math.max(0, this.knightMaxHp * (1 - this.wrong / (this.script.length + 1)));
     if (this.kind === "boss") return Math.max(0, this.knightMaxHp * (1 - this.wrong / (this.allowedWrong + 1)));
     return Math.max(0, this.knightMaxHp - this.knightLost);
   }
 
   get enemyHp(): number {
+    if (this.script) return Math.max(0, this.enemyMaxHp * (1 - this.answered / this.script.length));
     if (this.kind === "boss") return Math.max(0, this.enemyMaxHp * (1 - this.correct / this.need));
     return Math.max(0, this.enemyMaxHp - this.enemyLost);
   }
 
   get state(): BattleState {
+    if (this.script) return this.answered >= this.script.length ? "won" : "ongoing";
     if (this.kind === "boss") {
       if (this.correct >= this.need) return "won";
       if (this.wrong > this.allowedWrong) return "lost";
@@ -105,7 +144,12 @@ export class Battle {
 
   /** Next task: concepts take turns so one battle covers the whole module; within a concept, fresh tasks first. */
   nextTask(): Task {
-    const concepts = this.s.module.concepts;
+    if (this.script) {
+      const task = this.script[this.answered];
+      if (!task) throw new Error("the review is over");
+      return task;
+    }
+    const concepts = this.module!.concepts;
     for (let pass = 0; pass < 2; pass++) {
       for (let i = 0; i < concepts.length; i++) {
         const concept = concepts[(this.conceptCursor + i) % concepts.length]!;
@@ -131,8 +175,9 @@ export class Battle {
     if (this.state !== "ongoing") throw new Error("the battle is over");
     const kind: Strike["kind"] = outcome.correct ? "hit" : outcome.match === "typo" ? "graze" : "miss";
     const before = { knight: this.knightHp, enemy: this.enemyHp };
-    if (this.kind === "boss") {
-      // The boss fight is the module's score, and a typo is not a correct answer there.
+    if (this.kind === "boss" || this.script) {
+      // The boss fight is the module's score, and a typo is not a correct answer there;
+      // in a review the bars only count answers, so they follow the same rule.
       if (outcome.correct) this.correct++;
       else this.wrong++;
     } else {

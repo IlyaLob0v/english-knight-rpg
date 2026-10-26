@@ -14,6 +14,7 @@ const FOLDERS = {
   buildings: "world/buildings.json",
   enemies: "world/enemies.json",
   stories: "story",
+  progression: "world/progression.json",
 } as const;
 
 async function listJson(dir: string): Promise<string[]> {
@@ -44,7 +45,7 @@ async function listJson(dir: string): Promise<string[]> {
 /**
  * Reads the content tree. Layout:
  *   taxonomy/*.json, modules/*.json, tasks/*.json, tracks/*.json,
- *   world/buildings.json, world/enemies.json, story/*.json
+ *   world/buildings.json, world/enemies.json, world/progression.json, story/*.json
  * A file that is not valid JSON is reported with `parseError` instead of data.
  */
 export async function loadContentDir(root: string): Promise<{ source: ContentSource; parseErrors: { file: string; message: string }[] }> {
@@ -69,6 +70,7 @@ export async function loadContentDir(root: string): Promise<{ source: ContentSou
     buildings: await read(FOLDERS.buildings),
     enemies: await read(FOLDERS.enemies),
     stories: await read(FOLDERS.stories),
+    progression: await read(FOLDERS.progression),
   };
   return { source, parseErrors };
 }
