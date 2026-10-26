@@ -13,10 +13,15 @@
     "content:validate": "pnpm --filter @knight/content validate",
     "content:bundle": "pnpm --filter @knight/content bundle",
     "dev:server": "pnpm --filter @knight/server dev",
+    "dev:server:lms": "pnpm --filter @knight/server dev:lms",
     "dev:client": "pnpm --filter @knight/client dev",
     "build:client": "pnpm --filter @knight/client build",
     "client:no-content": "pnpm --filter @knight/client check:no-content",
-    "check": "pnpm typecheck && pnpm content:validate && pnpm client:no-content && pnpm test"
+    "check": "pnpm typecheck && pnpm content:validate && pnpm client:no-content && pnpm test",
+    "lms:up": "sh docker/setup.sh",
+    "lms:down": "docker compose down",
+    "lrs:errors": "pnpm --filter @knight/server lrs:errors",
+    "e2e:lms": "pnpm --filter @knight/e2e lms"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

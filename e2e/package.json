@@ -1,0 +1,15 @@
+{
+  "name": "@knight/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end check against the local LMS stack (compose.yaml): Moodle launch, play, LRS, gradebook",
+  "scripts": {
+    "lms": "tsx --env-file-if-exists=../docker/state/gateway.env lms.e2e.ts"
+  },
+  "dependencies": {
+    "@knight/content": "workspace:*",
+    "@knight/xapi": "workspace:*",
+    "playwright": "1.63.0"
+  }
+}

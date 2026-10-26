@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isoDuration, KnightProfile, LrsClient, MemoryOutboxStore, Outbox, StatementBuilder, validateStatement, type SendOutcome, type Statement } from "../src/index.js";
+import { conceptErrors, isoDuration, KnightProfile, LrsClient, MemoryOutboxStore, Outbox, StatementBuilder, validateStatement, type SendOutcome, type Statement } from "../src/index.js";
 
 const builder = new StatementBuilder(new KnightProfile("https://knight.example.com/"));
 const make = (n: number): Statement[] =>
@@ -137,5 +137,41 @@ describe("Outbox", () => {
       now += 3_600_000;
     }
     expect(store.dead.size).toBe(1);
+  });
+});
+
+describe("conceptErrors", () => {
+  it("asks the LRS for answered statements related to the concept and keeps the wrong ones", async () => {
+    const profile = new KnightProfile("https://knight.test");
+    const b = new StatementBuilder(profile);
+    const common = { playerId: "p1", moduleId: "A1_PastSimple_01", conceptId: "past_simple.irregular", interactionType: "fill-in" as const, correctResponses: ["went"], hintUsed: false, attempt: 1, durationMs: 1000 };
+    const wrong = b.answered({ ...common, taskId: "A1_PastSimple_01_q3", response: "goed", success: false, errorType: "grammar.overgeneralization", correctForm: "went" });
+    const right = b.answered({ ...common, taskId: "A1_PastSimple_01_q4", response: "went", success: true });
+    const odd = b.answered({ ...common, taskId: "A1_PastSimple_01_q5", response: "wented", success: false });
+    const urls: URL[] = [];
+    const lrs = new LrsClient({
+      endpoint: "https://lrs.test/xapi/",
+      key: "k",
+      secret: "s",
+      fetch: (async (url: string) => {
+        const u = new URL(url);
+        urls.push(u);
+        return u.searchParams.has("cursor")
+          ? Response.json({ statements: [odd], more: "" })
+          : Response.json({ statements: [wrong, right], more: "/xapi/statements?cursor=2" });
+      }) as typeof fetch,
+    });
+    const errors = await conceptErrors(lrs, profile, "past_simple.irregular", { since: new Date("2026-10-19T00:00:00Z") });
+    expect(Object.fromEntries(urls[0]!.searchParams)).toMatchObject({
+      verb: "http://adlnet.gov/expapi/verbs/answered",
+      activity: "https://knight.test/xapi/concepts/past_simple.irregular",
+      related_activities: "true",
+      since: "2026-10-19T00:00:00.000Z",
+    });
+    expect(urls[1]!.toString()).toBe("https://lrs.test/xapi/statements?cursor=2");
+    expect(errors).toEqual([
+      expect.objectContaining({ statementId: wrong.id, taskId: "A1_PastSimple_01_q3", response: "goed", errorType: "grammar.overgeneralization", correctForm: "went" }),
+      expect.objectContaining({ statementId: odd.id, response: "wented", errorType: "unclassified" }),
+    ]);
   });
 });

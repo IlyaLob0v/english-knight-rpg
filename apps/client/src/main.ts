@@ -2,6 +2,7 @@ import type { ContentBundle } from "@knight/content";
 import Phaser from "phaser";
 import { Game } from "./game/game.js";
 import { Api, GatewaySink, localSessionStorage, renewGuest, startSession } from "./net/api.js";
+import { ProgressBackup } from "./net/backup.js";
 import { BattleScene } from "./scenes/BattleScene.js";
 import { CityScene } from "./scenes/CityScene.js";
 import { MapScene } from "./scenes/MapScene.js";
@@ -39,9 +40,13 @@ async function boot(): Promise<void> {
   if (location.hash) history.replaceState(null, "", location.pathname + location.search);
 
   const db = await openPlayerDb(session.playerId);
-  const kv = new IdbKeyValue(db);
-  const bundle = await loadBundle(api, kv);
+  const local = new IdbKeyValue(db);
+  const bundle = await loadBundle(api, local);
   if (!bundle) return fatal("Нет связи с сервером, а сохранённого контента ещё нет. Запусти шлюз: pnpm dev:server.");
+
+  // Game state goes to IndexedDB and, a moment later, to the server's backup.
+  const kv = new ProgressBackup(local, api, () => session.token);
+  await kv.restore();
 
   let renewing: Promise<unknown> | undefined;
   const sink = new GatewaySink(
@@ -71,7 +76,12 @@ async function boot(): Promise<void> {
     },
   });
   await game.launched();
-  window.addEventListener("online", () => void game.sync());
+  // Statements and LMS results leave on every battle end, when the network returns, and
+  // at least every 20 seconds, so a grade reaches the LMS gradebook within a minute.
+  const sync = () => void game.sync().then(() => kv.push());
+  sync();
+  window.addEventListener("online", sync);
+  setInterval(sync, 20_000);
 
   ui.replaceChildren();
   const intro = await game.storyOnce(game.track.chapters[0]?.story_intro);

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import type { PlatformConfig } from "./lti/platforms.js";
 
 export interface ServerConfig {
@@ -17,6 +18,8 @@ export interface ServerConfig {
   /** Allows POST /session/guest for local play without an LMS. Never in production. */
   allowGuest: boolean;
   lrs?: { endpoint: string; key: string; secret: string };
+  /** Postgres for the gateway's state. Unset = in-memory stores (dev only: a restart forgets everything). */
+  databaseUrl?: string;
   lti: {
     platforms: PlatformConfig[];
     /** PEM (PKCS#8) RSA private key of the tool. Unset = an ephemeral key is generated (dev only). */
@@ -31,11 +34,21 @@ function required(env: NodeJS.ProcessEnv, name: string, fallback?: string): stri
   return v;
 }
 
+/** A value from NAME, or from the file NAME_FILE points to (Docker secrets, generated dev files). */
+function fromEnvOrFile(env: NodeJS.ProcessEnv, name: string): string | undefined {
+  if (env[name]) return env[name];
+  const file = env[`${name}_FILE`];
+  return file ? readFileSync(file, "utf8") : undefined;
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   const production = env.NODE_ENV === "production";
   const sessionSecret = required(env, "SESSION_SECRET", production ? undefined : "dev-only-session-secret-change-me-0123456789");
   if (sessionSecret.length < 32) throw new Error("SESSION_SECRET must be at least 32 characters");
   const port = Number(env.PORT ?? 8787);
+  if (production && !env.DATABASE_URL) throw new Error("DATABASE_URL is required when NODE_ENV=production");
+  const platforms = fromEnvOrFile(env, "LTI_PLATFORMS");
+  const privateKeyPem = fromEnvOrFile(env, "LTI_PRIVATE_KEY");
   return {
     port,
     host: env.HOST ?? "0.0.0.0",
@@ -50,9 +63,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     ...(env.LRS_ENDPOINT
       ? { lrs: { endpoint: env.LRS_ENDPOINT, key: required(env, "LRS_KEY"), secret: required(env, "LRS_SECRET") } }
       : {}),
+    ...(env.DATABASE_URL ? { databaseUrl: env.DATABASE_URL } : {}),
     lti: {
-      platforms: env.LTI_PLATFORMS ? (JSON.parse(env.LTI_PLATFORMS) as PlatformConfig[]) : [],
-      ...(env.LTI_PRIVATE_KEY ? { privateKeyPem: env.LTI_PRIVATE_KEY } : {}),
+      platforms: platforms ? (JSON.parse(platforms) as PlatformConfig[]) : [],
+      ...(privateKeyPem ? { privateKeyPem } : {}),
       keyId: env.LTI_KEY_ID ?? "knight-tool-1",
     },
   };

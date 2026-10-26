@@ -12,14 +12,20 @@ export interface PendingLogin {
 /**
  * OIDC state → nonce, one-time. Kept server-side instead of in a cookie because
  * LMSs embed the tool in an iframe where third-party cookies are often blocked
- * (Safari). The LTI client-side postMessage storage spec is the stronger fix and
- * goes on top of this in week 5.
+ * (Safari). Postgres-backed in production (db/stores.ts), so a launch survives a
+ * restart between the login redirect and the launch post.
  */
-export class LoginStateStore {
+export interface LoginStates {
+  create(issuer: string, clientId: string): Promise<{ state: string; nonce: string }>;
+  /** Returns the login once and deletes it; expired logins come back undefined. */
+  consume(state: string): Promise<PendingLogin | undefined>;
+}
+
+export class LoginStateStore implements LoginStates {
   private readonly pending = new Map<string, PendingLogin>();
   constructor(private readonly ttlMs = 5 * 60 * 1000, private readonly now: () => number = Date.now) {}
 
-  create(issuer: string, clientId: string): { state: string; nonce: string } {
+  async create(issuer: string, clientId: string): Promise<{ state: string; nonce: string }> {
     this.sweep();
     const state = crypto.randomUUID();
     const nonce = crypto.randomUUID();
@@ -27,7 +33,7 @@ export class LoginStateStore {
     return { state, nonce };
   }
 
-  consume(state: string): PendingLogin | undefined {
+  async consume(state: string): Promise<PendingLogin | undefined> {
     const p = this.pending.get(state);
     this.pending.delete(state);
     return p && p.expiresAt > this.now() ? p : undefined;
@@ -55,14 +61,14 @@ export interface LoginRequest {
 }
 
 /** Step 1 of the launch: the LMS calls our login URL; we answer with a redirect to its auth endpoint. */
-export function buildAuthRedirect(req: LoginRequest, registry: PlatformRegistry, states: LoginStateStore, redirectUri: string): string {
+export async function buildAuthRedirect(req: LoginRequest, registry: PlatformRegistry, states: LoginStates, redirectUri: string): Promise<string> {
   if (!req.iss || !req.login_hint) throw new LtiError("login.params", "iss and login_hint are required");
   const platform = registry.find(req.iss, req.client_id);
   if (!platform) throw new LtiError("login.platform", `unknown platform ${req.iss}${req.client_id ? ` / ${req.client_id}` : ""}`);
   if (req.lti_deployment_id && !platform.deploymentIds.includes(req.lti_deployment_id)) {
     throw new LtiError("login.deployment", `unknown deployment ${req.lti_deployment_id}`);
   }
-  const { state, nonce } = states.create(platform.issuer, platform.clientId);
+  const { state, nonce } = await states.create(platform.issuer, platform.clientId);
   const url = new URL(platform.authLoginUrl);
   const params: Record<string, string> = {
     scope: "openid",
@@ -84,10 +90,10 @@ export function buildAuthRedirect(req: LoginRequest, registry: PlatformRegistry,
 export async function verifyLaunch(
   form: { id_token?: string; state?: string },
   registry: PlatformRegistry,
-  states: LoginStateStore,
+  states: LoginStates,
 ): Promise<LaunchContext> {
   if (!form.id_token || !form.state) throw new LtiError("launch.params", "id_token and state are required");
-  const pending = states.consume(form.state);
+  const pending = await states.consume(form.state);
   if (!pending) throw new LtiError("launch.state", "unknown or expired state", 401);
   const platform = registry.find(pending.issuer, pending.clientId);
   if (!platform) throw new LtiError("launch.platform", "platform no longer registered", 401);
