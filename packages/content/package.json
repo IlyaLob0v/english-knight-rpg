@@ -1,0 +1,20 @@
+{
+  "name": "@knight/content",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Content contract: JSON Schemas, TS types, validator and bundle builder. Content data itself lives in /content.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/node.ts",
+    "./schemas/*": "./schemas/*"
+  },
+  "scripts": {
+    "validate": "tsx src/cli.ts validate ../../content",
+    "bundle": "tsx src/cli.ts bundle ../../content ../../dist/content-bundle.json"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1"
+  }
+}

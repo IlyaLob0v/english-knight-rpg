@@ -1,0 +1,29 @@
+{
+  "name": "english-knight-rpg",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "content:validate": "pnpm --filter @knight/content validate",
+    "content:bundle": "pnpm --filter @knight/content bundle",
+    "dev:server": "pnpm --filter @knight/server dev",
+    "check": "pnpm typecheck && pnpm content:validate && pnpm test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

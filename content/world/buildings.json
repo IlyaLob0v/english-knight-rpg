@@ -1,0 +1,9 @@
+{
+  "$schema": "../../packages/content/schemas/buildings.schema.json",
+  "schema_version": "1.0",
+  "buildings": [
+    { "building_id": "town_hall", "name": { "en": "Town Hall", "ru": "Ратуша" }, "sprite": "buildings/town_hall.png", "cost_kp": 0, "bonus": { "kind": "max_hp", "value": 10 } },
+    { "building_id": "forge", "name": { "en": "Forge", "ru": "Кузница" }, "sprite": "buildings/forge.png", "cost_kp": 50, "bonus": { "kind": "xp_multiplier", "value": 1.1 } },
+    { "building_id": "library", "name": { "en": "Library", "ru": "Библиотека" }, "sprite": "buildings/library.png", "cost_kp": 80, "bonus": { "kind": "hint_charges", "value": 2 } }
+  ]
+}

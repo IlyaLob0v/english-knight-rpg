@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://knight.example.com/schemas/errors.schema.json",
+  "title": "Error taxonomy",
+  "description": "Two levels: a fixed category and an extensible subtype. Ids become xAPI IRIs, so they are never renamed or reused.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "version", "error_types"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": "1.0" },
+    "version": { "type": "integer", "minimum": 1 },
+    "error_types": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^((grammar|lexis|spelling|comprehension)\\.[a-z0-9_]+|unclassified)$" },
+          "label": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["en", "ru"],
+            "properties": { "en": { "type": "string", "minLength": 1 }, "ru": { "type": "string", "minLength": 1 } }
+          },
+          "deprecated": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

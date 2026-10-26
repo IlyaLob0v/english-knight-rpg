@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://knight.example.com/schemas/module.schema.json",
+  "title": "Learning module",
+  "description": "One learning module: topic, concepts (FSRS cards) and the pool of task ids. A module does not know its place in a story or which building it unlocks: that is the track's job.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "module_id", "version", "cefr_level", "title", "skill", "concepts", "prerequisites", "mastery", "tasks"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": "1.0" },
+    "module_id": { "$ref": "#/$defs/moduleId" },
+    "version": { "type": "integer", "minimum": 1, "description": "Bump on every content change; recorded in each xAPI statement as content-version." },
+    "cefr_level": { "enum": ["A1", "A2", "B1", "B2", "C1", "C2"] },
+    "title": { "$ref": "#/$defs/localized" },
+    "description": { "$ref": "#/$defs/localized" },
+    "skill": { "enum": ["grammar", "vocabulary", "reading", "listening"] },
+    "grammar_topic": { "type": "string", "minLength": 1 },
+    "vocabulary_set": { "type": "string", "minLength": 1 },
+    "prerequisites": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/moduleId" }
+    },
+    "concepts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["concept_id", "label"],
+        "properties": {
+          "concept_id": { "$ref": "#/$defs/conceptId" },
+          "label": { "type": "string", "minLength": 1 },
+          "explanation_ru": { "type": "string" }
+        }
+      }
+    },
+    "mastery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["boss_task_count", "pass_score"],
+      "properties": {
+        "boss_task_count": { "type": "integer", "minimum": 1 },
+        "pass_score": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Active task pool. Removing an id here disables the task without deleting it.",
+      "items": { "$ref": "#/$defs/taskId" }
+    }
+  },
+  "$defs": {
+    "moduleId": { "type": "string", "pattern": "^(A1|A2|B1|B2|C1|C2)_[A-Za-z0-9]+_[0-9]{2}$" },
+    "taskId": { "type": "string", "pattern": "^(A1|A2|B1|B2|C1|C2)_[A-Za-z0-9]+_[0-9]{2}_[a-z0-9_]+$" },
+    "conceptId": { "type": "string", "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)+$" },
+    "localized": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["en", "ru"],
+      "properties": { "en": { "type": "string", "minLength": 1 }, "ru": { "type": "string", "minLength": 1 } }
+    }
+  }
+}
