@@ -1,0 +1,27 @@
+{
+  "$schema": "../../packages/content/schemas/story.schema.json",
+  "schema_version": "1.0",
+  "story_id": "q_forge_fire_intro",
+  "lines": [
+    {
+      "speaker": {
+        "en": "Blacksmith Oren",
+        "ru": "Кузнец Орен"
+      },
+      "text": {
+        "en": "Yesterday an ash golem came. It stopped my fire.",
+        "ru": "Вчера пришёл пепельный голем. Он потушил мой огонь."
+      }
+    },
+    {
+      "speaker": {
+        "en": "Knight",
+        "ru": "Рыцарь"
+      },
+      "text": {
+        "en": "Tell me what happened. I will listen.",
+        "ru": "Расскажи, что случилось. Я выслушаю."
+      }
+    }
+  ]
+}

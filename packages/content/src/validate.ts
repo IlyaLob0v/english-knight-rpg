@@ -5,6 +5,7 @@ import trackSchema from "../schemas/track.schema.json" with { type: "json" };
 import buildingsSchema from "../schemas/buildings.schema.json" with { type: "json" };
 import enemiesSchema from "../schemas/enemies.schema.json" with { type: "json" };
 import errorsSchema from "../schemas/errors.schema.json" with { type: "json" };
+import storySchema from "../schemas/story.schema.json" with { type: "json" };
 import { normalizeAnswer, tokenize } from "./normalize.js";
 import type {
   Building,
@@ -13,6 +14,7 @@ import type {
   ErrorTaxonomy,
   Module,
   SourceFile,
+  Story,
   Task,
   TaskSet,
   Track,
@@ -35,6 +37,7 @@ export interface ValidatedContent {
   tracks: Track[];
   buildings: Building[];
   enemies: Enemy[];
+  stories: Story[];
 }
 
 export interface ValidationResult {
@@ -52,6 +55,7 @@ const validators = {
   buildings: ajv.compile(buildingsSchema),
   enemies: ajv.compile(enemiesSchema),
   errors: ajv.compile(errorsSchema),
+  story: ajv.compile(storySchema),
 };
 
 function schemaPass<T>(files: SourceFile[], validate: ValidateFunction, issues: Issue[]): SourceFile<T>[] {
@@ -91,6 +95,7 @@ export function validateContent(source: ContentSource): ValidationResult {
   const trackFiles = schemaPass<Track>(source.tracks, validators.track, issues);
   const buildingFiles = schemaPass<{ buildings: Building[] }>(source.buildings, validators.buildings, issues);
   const enemyFiles = schemaPass<{ enemies: Enemy[] }>(source.enemies, validators.enemies, issues);
+  const storyFiles = schemaPass<Story>(source.stories ?? [], validators.story, issues);
 
   if (source.taxonomy.length !== 1) {
     err("taxonomy/", "taxonomy.count", `expected exactly one error taxonomy file, found ${source.taxonomy.length}`);
@@ -185,6 +190,10 @@ export function validateContent(source: ContentSource): ValidationResult {
   // World.
   const buildings = collectUnique(buildingFiles, (d) => d.buildings, (b) => b.building_id, "building_id", err);
   const enemies = collectUnique(enemyFiles, (d) => d.enemies, (e) => e.enemy_id, "enemy_id", err);
+  const stories = collectUnique(storyFiles, (d) => [d], (st) => st.story_id, "story_id", err);
+  const storyRef = (where: string, id: string | undefined) => {
+    if (id !== undefined && !stories.has(id)) err(where, "ref.story", `story "${id}" does not exist`);
+  };
 
   // Tracks: references and prerequisite order.
   const trackIds = new Set<string>();
@@ -194,6 +203,7 @@ export function validateContent(source: ContentSource): ValidationResult {
     const seen = new Set<string>();
     const buildingsUsed = new Set<string>();
     for (const chapter of track.chapters) {
+      storyRef(`${path} › ${chapter.chapter_id}`, chapter.story_intro);
       for (const step of chapter.steps) {
         const where = `${path} › ${chapter.chapter_id} › ${step.module_id}`;
         const mod = modules.get(step.module_id);
@@ -215,6 +225,13 @@ export function validateContent(source: ContentSource): ValidationResult {
           if (!enemy) err(where, "ref.enemy", `boss "${step.boss}" does not exist`);
           else if (enemy.role !== "boss") err(where, "ref.enemy", `enemy "${step.boss}" has role "${enemy.role}", expected "boss"`);
         }
+        for (const id of step.encounters?.enemies ?? []) {
+          const enemy = enemies.get(id);
+          if (!enemy) err(where, "ref.enemy", `encounter enemy "${id}" does not exist`);
+          else if (enemy.role === "boss") err(where, "ref.enemy", `encounter enemy "${id}" is a boss; bosses belong in "boss"`);
+        }
+        storyRef(where, step.intro);
+        storyRef(where, step.outro);
       }
     }
   }
@@ -231,6 +248,7 @@ export function validateContent(source: ContentSource): ValidationResult {
           tracks: trackFiles.map((f) => f.data),
           buildings: [...buildings.values()],
           enemies: [...enemies.values()],
+          stories: [...stories.values()],
         }
       : undefined,
   };

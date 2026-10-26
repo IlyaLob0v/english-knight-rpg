@@ -1,0 +1,23 @@
+{
+  "name": "@knight/client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Phaser game client: map, battles, boss fights. Renders tasks by type; every task comes from the content bundle.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check:no-content": "tsx scripts/check-no-content.ts"
+  },
+  "dependencies": {
+    "@knight/content": "workspace:*",
+    "@knight/learning": "workspace:*",
+    "@knight/xapi": "workspace:*",
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.6",
+    "vite": "^7.3.7"
+  }
+}

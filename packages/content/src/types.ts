@@ -71,6 +71,12 @@ export interface TrackStep {
   quest_id: string;
   unlocks_building: string;
   boss?: string;
+  /** story_id shown before the step's first battle. */
+  intro?: string;
+  /** story_id shown after the boss is defeated. */
+  outro?: string;
+  /** Ordinary battles; the boss unlocks after `wins_before_boss` (default 2) victories. */
+  encounters?: { enemies: string[]; wins_before_boss?: number };
 }
 
 export interface Track {
@@ -95,6 +101,17 @@ export interface Enemy {
   role: "minion" | "elite" | "boss";
   hp: number;
   damage: number;
+}
+
+export interface StoryLine {
+  speaker?: Localized;
+  text: Localized;
+}
+
+export interface Story {
+  schema_version: "1.0";
+  story_id: string;
+  lines: StoryLine[];
 }
 
 export interface ErrorType {
@@ -123,6 +140,8 @@ export interface ContentSource {
   tracks: SourceFile[];
   buildings: SourceFile[];
   enemies: SourceFile[];
+  /** Optional so that older uploads without stories still validate. */
+  stories?: SourceFile[];
 }
 
 /** Validated content, flattened and indexed: this is what the game and the engine consume. */
@@ -137,4 +156,5 @@ export interface ContentBundle {
   tracks: Track[];
   buildings: Building[];
   enemies: Enemy[];
+  stories: Story[];
 }

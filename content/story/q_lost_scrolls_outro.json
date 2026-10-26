@@ -1,0 +1,27 @@
+{
+  "$schema": "../../packages/content/schemas/story.schema.json",
+  "schema_version": "1.0",
+  "story_id": "q_lost_scrolls_outro",
+  "lines": [
+    {
+      "speaker": {
+        "en": "Librarian Ives",
+        "ru": "Библиотекарь Айвз"
+      },
+      "text": {
+        "en": "The scrolls are home! The library is open again.",
+        "ru": "Свитки дома! Библиотека снова открыта."
+      }
+    },
+    {
+      "speaker": {
+        "en": "Elder Mara",
+        "ru": "Старейшина Мара"
+      },
+      "text": {
+        "en": "Ashford is alive again, knight. But this is only the first chapter.",
+        "ru": "Эшфорд снова жив, рыцарь. Но это лишь первая глава."
+      }
+    }
+  ]
+}

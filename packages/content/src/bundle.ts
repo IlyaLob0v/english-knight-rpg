@@ -18,6 +18,7 @@ export function buildBundle(content: ValidatedContent, builtAt = new Date()): Co
     tracks: [...content.tracks].sort((a, b) => a.track_id.localeCompare(b.track_id)),
     buildings: [...content.buildings].sort((a, b) => a.building_id.localeCompare(b.building_id)),
     enemies: [...content.enemies].sort((a, b) => a.enemy_id.localeCompare(b.enemy_id)),
+    stories: [...content.stories].sort((a, b) => a.story_id.localeCompare(b.story_id)),
   };
   const content_hash = createHash("sha256").update(JSON.stringify(body)).digest("hex").slice(0, 16);
   return { bundle_schema_version: "1.0", content_hash, built_at: builtAt.toISOString(), ...body };
