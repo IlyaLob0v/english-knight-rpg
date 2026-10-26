@@ -4,11 +4,12 @@ import { buildBundle } from "@knight/content/node";
 import { KnightProfile, Outbox, validateStatement, type Statement } from "@knight/xapi";
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import type { ServerConfig } from "./config.js";
-import { AgsClient, AgsError } from "./lti/ags.js";
+import { contextKey, type GradeOutcome, type GradeSync } from "./grades.js";
 import type { IdentityStore } from "./lti/identity.js";
 import type { ToolKeys } from "./lti/keys.js";
-import { buildAuthRedirect, LoginStateStore, LtiError, verifyLaunch, type LoginRequest } from "./lti/launch.js";
+import { buildAuthRedirect, LtiError, verifyLaunch, type LoginRequest, type LoginStates } from "./lti/launch.js";
 import type { PlatformRegistry } from "./lti/platforms.js";
+import type { ProgressStore } from "./progress.js";
 import type { ScoreStore } from "./scores.js";
 import type { Session, SessionTokens } from "./session.js";
 
@@ -18,10 +19,11 @@ export interface AppDeps {
   outbox: Outbox;
   tokens: SessionTokens;
   platforms: PlatformRegistry;
-  loginStates: LoginStateStore;
+  loginStates: LoginStates;
   identities: IdentityStore;
-  ags: AgsClient;
+  grades: GradeSync;
   scores: ScoreStore;
+  progress: ProgressStore;
   toolKeys: ToolKeys;
 }
 
@@ -32,6 +34,9 @@ declare module "fastify" {
 }
 
 const MAX_STATEMENTS_PER_POST = 200;
+const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
+/** A client clock this far ahead is wrong; its saves would block every honest save after it. */
+const MAX_CLOCK_SKEW_MS = 24 * 3600 * 1000;
 const GUEST_ID = /^guest_[0-9a-f]{8}$/;
 
 export async function buildApp(d: AppDeps): Promise<FastifyInstance> {
@@ -141,31 +146,54 @@ export async function buildApp(d: AppDeps): Promise<FastifyInstance> {
       const passed = scaled >= module.mastery.pass_score;
       const { best, improved } = await d.scores.record(s.playerId, module.module_id, scaled);
 
-      let lms: "sent" | "not_lti" | "not_improved" | "failed" = "not_lti";
-      if (s.lti?.ags && improved) {
-        const platform = d.platforms.find(s.lti.iss, s.lti.clientId);
-        try {
-          if (!platform) throw new AgsError("platform no longer registered");
-          const lineItem = await d.ags.lineItemFor(platform, s.lti.ags, { moduleId: module.module_id, label: module.title.en, scoreMaximum: 100 }, s.lti.moduleId);
-          await d.ags.submitScore(platform, lineItem, {
-            userId: s.lti.sub,
-            scoreGiven: Math.round(best * 100),
-            scoreMaximum: 100,
-            activityProgress: "Completed",
-            gradingProgress: "FullyGraded",
-            timestamp: new Date().toISOString(),
-          });
-          lms = "sent";
-        } catch (e) {
-          // The grade is not lost: the best score is stored and is sent again on the next result.
-          // A retry queue for AGS, like the xAPI outbox, comes with Postgres in week 5.
-          req.log.error(e, "AGS score submission failed");
-          lms = "failed";
-        }
-      } else if (s.lti?.ags) {
-        lms = "not_improved";
+      // The grade goes into the AGS queue first, so an LMS outage delays it but never loses it.
+      let lms: GradeOutcome | "not_lti" = "not_lti";
+      if (s.lti?.ags) {
+        lms = await d.grades.submit({
+          playerId: s.playerId,
+          moduleId: module.module_id,
+          contextKey: contextKey(s.lti.iss, s.lti.clientId, s.lti.contextId, s.lti.ags),
+          label: module.title.en,
+          scoreGiven: Math.round(best * 100),
+          iss: s.lti.iss,
+          clientId: s.lti.clientId,
+          sub: s.lti.sub,
+          ags: s.lti.ags,
+          ...(s.lti.moduleId ? { launchModuleId: s.lti.moduleId } : {}),
+        });
       }
       return { passed, scaled, best, lms };
+    },
+  );
+
+  // ---------- Progress backup: the browser's game state, so a player keeps their city on another device.
+  app.get("/progress/snapshot", { preHandler: requireSession }, async (req, reply) => {
+    const stored = await d.progress.get(req.session!.playerId);
+    if (!stored) return reply.code(404).send({ error: "no snapshot" });
+    return { saved_at: stored.savedAt.toISOString(), snapshot: stored.snapshot };
+  });
+
+  app.put<{ Body: { saved_at: string; snapshot: Record<string, unknown> } }>(
+    "/progress/snapshot",
+    {
+      preHandler: requireSession,
+      bodyLimit: MAX_SNAPSHOT_BYTES,
+      schema: {
+        body: {
+          type: "object",
+          required: ["saved_at", "snapshot"],
+          properties: { saved_at: { type: "string", format: "date-time" }, snapshot: { type: "object" } },
+        },
+      },
+    },
+    async (req, reply) => {
+      const savedAt = new Date(req.body.saved_at);
+      if (Number.isNaN(savedAt.getTime()) || savedAt.getTime() > Date.now() + MAX_CLOCK_SKEW_MS) {
+        return reply.code(400).send({ error: "saved_at is not a plausible time" });
+      }
+      const r = await d.progress.put(req.session!.playerId, req.body.snapshot, savedAt);
+      // 409 tells the client a newer save from another device is stored.
+      return reply.code(r.accepted ? 200 : 409).send({ accepted: r.accepted, saved_at: r.savedAt.toISOString() });
     },
   );
 
@@ -175,7 +203,7 @@ export async function buildApp(d: AppDeps): Promise<FastifyInstance> {
   const login = async (req: FastifyRequest<{ Querystring: LoginRequest; Body: LoginRequest }>, reply: FastifyReply) => {
     const params = { ...(req.query ?? {}), ...((req.body as LoginRequest | undefined) ?? {}) };
     try {
-      return reply.redirect(buildAuthRedirect(params, d.platforms, d.loginStates, launchUrl), 302);
+      return reply.redirect(await buildAuthRedirect(params, d.platforms, d.loginStates, launchUrl), 302);
     } catch (e) {
       return ltiFailure(reply, e);
     }

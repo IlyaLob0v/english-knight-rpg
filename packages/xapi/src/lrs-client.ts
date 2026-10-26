@@ -27,6 +27,20 @@ export interface StatementSink {
 
 const XAPI_VERSION = "1.0.3";
 
+/** Filters of the xAPI GET /statements resource (xAPI 1.0.3, 2.1.3). */
+export interface StatementQuery {
+  agent?: Statement["actor"];
+  verb?: string;
+  activity?: string;
+  /** Also match `activity` in context activities (concept, module), not only as the object. */
+  related_activities?: boolean;
+  registration?: string;
+  since?: string;
+  until?: string;
+  limit?: number;
+  ascending?: boolean;
+}
+
 export class LrsClient implements StatementSink {
   private readonly url: string;
   private readonly auth: string;
@@ -36,6 +50,26 @@ export class LrsClient implements StatementSink {
     this.url = config.endpoint.replace(/\/?$/, "/") + "statements";
     this.auth = "Basic " + btoa(`${config.key}:${config.secret}`);
     this.fetchImpl = config.fetch ?? globalThis.fetch.bind(globalThis);
+  }
+
+  /** Every statement matching the query, following the LRS's `more` pages. */
+  async query(q: StatementQuery): Promise<Statement[]> {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(q)) if (v !== undefined) params.set(k, typeof v === "object" ? JSON.stringify(v) : String(v));
+    const out: Statement[] = [];
+    let next: string | undefined = `${this.url}?${params}`;
+    while (next) {
+      const res = await this.fetchImpl(next, {
+        headers: { Authorization: this.auth, "X-Experience-API-Version": XAPI_VERSION, Accept: "application/json" },
+        signal: AbortSignal.timeout(this.config.timeoutMs ?? 15000),
+      });
+      if (!res.ok) throw new Error(`LRS query: HTTP ${res.status} ${(await res.text().catch(() => "")).slice(0, 300)}`);
+      const page = (await res.json()) as { statements: Statement[]; more?: string };
+      out.push(...page.statements);
+      // `more` is a path relative to the LRS host (xAPI 1.0.3, 2.1.3).
+      next = page.more ? new URL(page.more, this.url).toString() : undefined;
+    }
+    return out;
   }
 
   async send(statements: Statement[]): Promise<SendOutcome> {

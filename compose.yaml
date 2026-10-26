@@ -1,0 +1,75 @@
+# Local LMS stack for the gateway: Postgres, an xAPI LRS (Yet SQL LRS) and Moodle 4.5 LTS
+# as the LTI 1.3 platform. The gateway and the game run on the host (pnpm), see docs/lms-setup.md.
+# Dev credentials only: never put real student data into this stack.
+name: knight-of-words
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres && psql -U postgres -lqt | cut -d '|' -f1 | grep -qw lrsql"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  lrs:
+    image: yetanalytics/lrsql:v0.9.9
+    command: /lrsql/bin/run_postgres.sh
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      LRSQL_DB_HOST: postgres
+      LRSQL_DB_PORT: 5432
+      LRSQL_DB_NAME: lrsql
+      LRSQL_DB_USER: lrsql
+      LRSQL_DB_PASSWORD: lrsql
+      # The gateway's credentials (LRS_KEY / LRS_SECRET) and the admin UI login.
+      LRSQL_API_KEY_DEFAULT: knight-gateway
+      LRSQL_API_SECRET_DEFAULT: knight-gateway-secret
+      LRSQL_ADMIN_USER_DEFAULT: admin
+      LRSQL_ADMIN_PASS_DEFAULT: knight-admin
+      LRSQL_ALLOW_ALL_ORIGINS: "true"
+    ports:
+      - "8090:8080"
+
+  moodle:
+    image: erseco/alpine-moodle:v4.5.15
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SITE_URL: http://localhost:8080
+      DB_TYPE: pgsql
+      DB_HOST: postgres
+      DB_NAME: moodle
+      DB_USER: moodle
+      DB_PASS: moodle
+      MOODLE_USERNAME: admin
+      MOODLE_PASSWORD: Knight-Admin-1
+      MOODLE_EMAIL: admin@example.com
+      MOODLE_MAIL_NOREPLY_ADDRESS: noreply@example.com
+      # No spaces: the image passes it to install.php unquoted.
+      MOODLE_SITENAME: Knight_of_Words_school
+      AUTO_UPDATE_MOODLE: "false"
+    ports:
+      - "8080:8080"
+    # Moodle fetches the tool's public key from the gateway on the host.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./docker/moodle:/provision:ro
+      - moodledata:/var/www/moodledata
+      - moodlehtml:/var/www/html
+
+volumes:
+  postgres:
+  moodledata:
+  moodlehtml:

@@ -1,126 +1,10 @@
-import { validateContent } from "@knight/content";
-import { buildBundle, loadContentDir } from "@knight/content/node";
-import { MemoryOutboxStore, Outbox, StatementBuilder, type Statement } from "@knight/xapi";
-import type { FastifyInstance } from "fastify";
-import { createLocalJWKSet, decodeJwt, exportJWK, generateKeyPair, SignJWT, type CryptoKey, type JWK } from "jose";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { buildApp } from "../src/app.js";
-import { loadConfig } from "../src/config.js";
-import { AgsClient, appendPath } from "../src/lti/ags.js";
-import { AGS_SCOPE, CLAIM } from "../src/lti/claims.js";
-import { MemoryIdentityStore } from "../src/lti/identity.js";
-import { loadToolKeys } from "../src/lti/keys.js";
-import { LoginStateStore } from "../src/lti/launch.js";
-import { PlatformRegistry, type PlatformConfig } from "../src/lti/platforms.js";
-import { MemoryScoreStore } from "../src/scores.js";
-import { SessionTokens } from "../src/session.js";
-
-const CONTENT_DIR = new URL("../../../content", import.meta.url).pathname;
-
-const platform: PlatformConfig = {
-  issuer: "https://moodle.test",
-  clientId: "knight-client",
-  deploymentIds: ["dep-1"],
-  authLoginUrl: "https://moodle.test/mod/lti/auth.php",
-  authTokenUrl: "https://moodle.test/mod/lti/token.php",
-  jwksUrl: "https://moodle.test/mod/lti/certs.php",
-};
-
-let platformKey: CryptoKey;
-let platformJwk: JWK;
-let bundle: Awaited<ReturnType<typeof buildBundle>>;
-
-beforeAll(async () => {
-  const pair = await generateKeyPair("RS256");
-  platformKey = pair.privateKey;
-  platformJwk = { ...(await exportJWK(pair.publicKey)), kid: "moodle-1", alg: "RS256" };
-  const { source } = await loadContentDir(CONTENT_DIR);
-  bundle = buildBundle(validateContent(source).content!);
-});
-
-interface Harness {
-  app: FastifyInstance;
-  sent: Statement[];
-  agsCalls: { url: string; init: RequestInit }[];
-  outbox: Outbox;
-}
-
-let current: FastifyInstance | undefined;
-afterEach(async () => {
-  await current?.close();
-  current = undefined;
-});
-
-async function harness(): Promise<Harness> {
-  const config = loadConfig({ NODE_ENV: "test", ADMIN_TOKEN: "admin-secret", PUBLIC_URL: "https://knight.test", CLIENT_URL: "https://play.knight.test/" });
-  const sent: Statement[] = [];
-  const outbox = new Outbox(new MemoryOutboxStore(), { send: async (b) => (sent.push(...b), { kind: "sent", ids: b.map((s) => s.id) }) });
-  const agsCalls: Harness["agsCalls"] = [];
-  const agsFetch = (async (url: string, init: RequestInit) => {
-    agsCalls.push({ url, init });
-    if (url === platform.authTokenUrl) return Response.json({ access_token: "lms-token", expires_in: 3600 });
-    return new Response(null, { status: 200 });
-  }) as unknown as typeof fetch;
-  const toolKeys = await loadToolKeys("tool-1");
-  const app = await buildApp({
-    config,
-    bundle,
-    outbox,
-    tokens: new SessionTokens(config.sessionSecret, 3600),
-    platforms: new PlatformRegistry([platform], () => createLocalJWKSet({ keys: [platformJwk] })),
-    loginStates: new LoginStateStore(),
-    identities: new MemoryIdentityStore(),
-    ags: new AgsClient(toolKeys, agsFetch),
-    scores: new MemoryScoreStore(),
-    toolKeys,
-  });
-  current = app;
-  return { app, sent, agsCalls, outbox };
-}
-
-async function idToken(nonce: string, overrides: Record<string, unknown> = {}) {
-  return new SignJWT({
-    nonce,
-    [CLAIM.messageType]: "LtiResourceLinkRequest",
-    [CLAIM.version]: "1.3.0",
-    [CLAIM.deploymentId]: "dep-1",
-    [CLAIM.targetLinkUri]: "https://knight.test/lti/launch",
-    [CLAIM.resourceLink]: { id: "rl-42" },
-    [CLAIM.roles]: ["http://purl.imsglobal.org/vocab/lis/v2/membership#Learner"],
-    [CLAIM.context]: { id: "course-7" },
-    [CLAIM.custom]: { module_id: "A1_PastSimple_01" },
-    [CLAIM.ags]: { scope: [AGS_SCOPE.score], lineitem: "https://moodle.test/mod/lti/services.php/2/lineitems/9/lineitem?type_id=1" },
-    ...overrides,
-  })
-    .setProtectedHeader({ alg: "RS256", kid: "moodle-1" })
-    .setIssuer(platform.issuer)
-    .setAudience(platform.clientId)
-    .setSubject("moodle-user-17")
-    .setIssuedAt()
-    .setExpirationTime("5m")
-    .sign(platformKey);
-}
-
-async function login(app: FastifyInstance) {
-  const res = await app.inject({
-    method: "POST",
-    url: "/lti/login",
-    payload: new URLSearchParams({ iss: platform.issuer, login_hint: "17", target_link_uri: "https://knight.test/lti/launch", client_id: platform.clientId }).toString(),
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-  });
-  expect(res.statusCode).toBe(302);
-  const redirect = new URL(res.headers.location as string);
-  return { redirect, state: redirect.searchParams.get("state")!, nonce: redirect.searchParams.get("nonce")! };
-}
-
-async function launch(app: FastifyInstance, form: Record<string, string>) {
-  return app.inject({ method: "POST", url: "/lti/launch", payload: new URLSearchParams(form).toString(), headers: { "content-type": "application/x-www-form-urlencoded" } });
-}
-
-function sessionFrom(html: string): string {
-  const url = new URL(/url=([^"]+)"/.exec(html)![1]!.replaceAll("&amp;", "&"));
-  return new URLSearchParams(url.hash.slice(1)).get("session")!;
-}
+import { loadContentDir } from "@knight/content/node";
+import { StatementBuilder } from "@knight/xapi";
+import { decodeJwt, generateKeyPair, SignJWT } from "jose";
+import { describe, expect, it } from "vitest";
+import { appendPath } from "../src/lti/ags.js";
+import { CLAIM } from "../src/lti/claims.js";
+import { bundle, CONTENT_DIR, harness, idToken, launch, login, platform, sessionFrom } from "./harness.js";
 
 describe("LTI 1.3 launch", () => {
   it("redirects the OIDC login to the platform with state and nonce", async () => {
@@ -215,6 +99,21 @@ describe("module result → AGS", () => {
     expect(agsCalls.filter((c) => c.url.includes("/scores"))).toHaveLength(1);
   });
 
+  it("queues the grade while the LMS is down and delivers it on the next flush", async () => {
+    const { app, agsCalls, grades, lms } = await harness();
+    const { state, nonce } = await login(app);
+    const token = sessionFrom((await launch(app, { id_token: await idToken(nonce), state })).body);
+    lms.down = true;
+    const res = await app.inject({ method: "POST", url: "/progress/module-result", headers: { authorization: `Bearer ${token}` }, payload: { module_id: "A1_PastSimple_01", correct: 8, total: 10 } });
+    expect(res.json()).toMatchObject({ passed: true, best: 0.8, lms: "queued" });
+    expect(await grades.flush()).toEqual({ sent: 0, retried: 1, failed: 0 });
+
+    lms.down = false;
+    expect(await grades.flush()).toEqual({ sent: 1, retried: 0, failed: 0 });
+    expect(JSON.parse(agsCalls.find((c) => c.url.includes("/scores"))!.init.body as string)).toMatchObject({ scoreGiven: 80 });
+    expect(await grades.flush()).toEqual({ sent: 0, retried: 0, failed: 0 });
+  });
+
   it("works without an LMS for guest sessions", async () => {
     const { app } = await harness();
     const { token } = (await app.inject({ method: "POST", url: "/session/guest" })).json();
@@ -239,6 +138,26 @@ describe("module result → AGS", () => {
   it("appends /scores before the query string", () => {
     expect(appendPath("https://lms.test/li/9?x=1", "scores")).toBe("https://lms.test/li/9/scores?x=1");
     expect(appendPath("https://lms.test/li/9/", "scores")).toBe("https://lms.test/li/9/scores");
+  });
+});
+
+describe("progress backup", () => {
+  it("keeps the newest snapshot per player and refuses older ones", async () => {
+    const { app } = await harness();
+    const { token } = (await app.inject({ method: "POST", url: "/session/guest" })).json();
+    const auth = { authorization: `Bearer ${token}` };
+    expect((await app.inject({ url: "/progress/snapshot", headers: auth })).statusCode).toBe(404);
+
+    const put = (savedAt: string, xp: number) => app.inject({ method: "PUT", url: "/progress/snapshot", headers: auth, payload: { saved_at: savedAt, snapshot: { progress: { xp } } } });
+    expect((await put("2026-10-26T10:00:00.000Z", 10)).json()).toEqual({ accepted: true, saved_at: "2026-10-26T10:00:00.000Z" });
+    expect((await put("2026-10-26T09:00:00.000Z", 5)).statusCode).toBe(409);
+    expect((await put("2999-01-01T00:00:00.000Z", 99)).statusCode).toBe(400);
+
+    const got = (await app.inject({ url: "/progress/snapshot", headers: auth })).json();
+    expect(got).toEqual({ saved_at: "2026-10-26T10:00:00.000Z", snapshot: { progress: { xp: 10 } } });
+
+    const other = (await app.inject({ method: "POST", url: "/session/guest" })).json();
+    expect((await app.inject({ url: "/progress/snapshot", headers: { authorization: `Bearer ${other.token}` } })).statusCode).toBe(404);
   });
 });
 

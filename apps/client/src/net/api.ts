@@ -1,5 +1,6 @@
 import type { ContentBundle } from "@knight/content";
 import type { SendOutcome, Statement, StatementSink } from "@knight/xapi";
+import type { Snapshot } from "./backup.js";
 
 /** What the client knows about its session; persisted so the game starts offline too. */
 export interface SessionInfo {
@@ -67,6 +68,27 @@ export class Api {
 
   moduleResult(token: string, body: { module_id: string; correct: number; total: number }) {
     return this.json<{ passed: boolean; best: number; lms: string }>("/progress/module-result", { method: "POST", body: JSON.stringify(body) }, token);
+  }
+
+  /** The server's copy of the game state, or undefined when there is none yet. */
+  async getSnapshot(token: string): Promise<Snapshot | undefined> {
+    try {
+      return await this.json<Snapshot>("/progress/snapshot", {}, token);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return undefined;
+      throw e;
+    }
+  }
+
+  /** Stores the game state; false when the server already holds a newer save. */
+  async putSnapshot(token: string, body: Snapshot): Promise<boolean> {
+    try {
+      await this.json("/progress/snapshot", { method: "PUT", body: JSON.stringify(body) }, token);
+      return true;
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) return false;
+      throw e;
+    }
   }
 
   /** Posts statements to the gateway's xAPI intake, with the same outcome contract as an LRS client. */
