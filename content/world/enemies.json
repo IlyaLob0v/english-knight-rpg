@@ -2,7 +2,8 @@
   "$schema": "../../packages/content/schemas/enemies.schema.json",
   "schema_version": "1.0",
   "enemies": [
-    { "enemy_id": "gate_rat", "name": { "en": "Gate Rat", "ru": "Привратная крыса" }, "sprite": "enemies/gate_rat.png", "role": "minion", "hp": 20, "damage": 4 },
+    { "enemy_id": "gate_rat", "name": { "en": "Gate Rat", "ru": "Привратная крыса" }, "sprite": "enemies/gate_rat.png", "role": "minion", "hp": 30, "damage": 4 },
+    { "enemy_id": "rust_crow", "name": { "en": "Rust Crow", "ru": "Ржавый ворон" }, "sprite": "enemies/rust_crow.png", "role": "minion", "hp": 30, "damage": 5 },
     { "enemy_id": "ash_imp", "name": { "en": "Ash Imp", "ru": "Пепельный бес" }, "sprite": "enemies/ash_imp.png", "role": "minion", "hp": 30, "damage": 6 },
     { "enemy_id": "ink_wraith", "name": { "en": "Ink Wraith", "ru": "Чернильный призрак" }, "sprite": "enemies/ink_wraith.png", "role": "elite", "hp": 50, "damage": 8 },
     { "enemy_id": "rusted_sentinel", "name": { "en": "Rusted Sentinel", "ru": "Ржавый страж" }, "sprite": "enemies/rusted_sentinel.png", "role": "boss", "hp": 100, "damage": 10 },

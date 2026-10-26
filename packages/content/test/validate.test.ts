@@ -107,6 +107,14 @@ describe("validator catches", () => {
     (src.tracks[0]!.data as any).chapters[0].steps[0].boss = "gate_rat";
     expect(codes(src)).toContain("ref.enemy");
   });
+
+  it("a boss among ordinary encounters and a missing story", async () => {
+    const src = await realSource();
+    const step = (src.tracks[0]!.data as any).chapters[0].steps[0];
+    step.encounters.enemies = ["ash_golem"];
+    step.outro = "no_such_story";
+    expect(codes(src)).toEqual(expect.arrayContaining(["ref.enemy", "ref.story"]));
+  });
 });
 
 describe("findCycles", () => {

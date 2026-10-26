@@ -22,5 +22,9 @@ jobs:
         run: pnpm content:validate
       - name: Build content bundle
         run: pnpm content:bundle
+      - name: No course content in the client
+        run: pnpm client:no-content
       - name: Test
         run: pnpm test
+      - name: Build client
+        run: pnpm build:client

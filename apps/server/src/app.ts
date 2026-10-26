@@ -32,6 +32,7 @@ declare module "fastify" {
 }
 
 const MAX_STATEMENTS_PER_POST = 200;
+const GUEST_ID = /^guest_[0-9a-f]{8}$/;
 
 export async function buildApp(d: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({ logger: process.env.NODE_ENV !== "test", bodyLimit: 5 * 1024 * 1024 });
@@ -70,10 +71,24 @@ export async function buildApp(d: AppDeps): Promise<FastifyInstance> {
   });
 
   // ---------- Sessions
-  app.post("/session/guest", async (_req, reply) => {
+  // A returning guest passes its old player_id, so statements queued offline under that id stay valid.
+  app.post<{ Body: { player_id?: string } | undefined }>("/session/guest", async (req, reply) => {
     if (!d.config.allowGuest) return reply.code(403).send({ error: "guest sessions are disabled" });
-    const session: Session = { playerId: `guest_${crypto.randomUUID().slice(0, 8)}`, registration: crypto.randomUUID() };
+    const previous = req.body?.player_id;
+    const playerId = typeof previous === "string" && GUEST_ID.test(previous) ? previous : `guest_${crypto.randomUUID().slice(0, 8)}`;
+    const session: Session = { playerId, registration: crypto.randomUUID() };
     return { token: await d.tokens.issue(session), player_id: session.playerId, registration: session.registration };
+  });
+
+  /** What the client needs to build statements the intake accepts: its actor and the xAPI base IRI. */
+  app.get("/session/me", { preHandler: requireSession }, async (req) => {
+    const s = req.session!;
+    return {
+      player_id: s.playerId,
+      registration: s.registration,
+      xapi_base_iri: profile.baseIri,
+      lti: s.lti ? { module_id: s.lti.moduleId ?? null, grades: Boolean(s.lti.ags) } : null,
+    };
   });
 
   // ---------- xAPI intake: the client's offline queue drains here, the server outbox delivers to the LRS.

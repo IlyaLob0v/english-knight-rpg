@@ -13,7 +13,10 @@
     "content:validate": "pnpm --filter @knight/content validate",
     "content:bundle": "pnpm --filter @knight/content bundle",
     "dev:server": "pnpm --filter @knight/server dev",
-    "check": "pnpm typecheck && pnpm content:validate && pnpm test"
+    "dev:client": "pnpm --filter @knight/client dev",
+    "build:client": "pnpm --filter @knight/client build",
+    "client:no-content": "pnpm --filter @knight/client check:no-content",
+    "check": "pnpm typecheck && pnpm content:validate && pnpm client:no-content && pnpm test"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

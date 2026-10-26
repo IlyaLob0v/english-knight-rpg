@@ -1,0 +1,27 @@
+{
+  "$schema": "../../packages/content/schemas/story.schema.json",
+  "schema_version": "1.0",
+  "story_id": "q_lost_scrolls_intro",
+  "lines": [
+    {
+      "speaker": {
+        "en": "Librarian Ives",
+        "ru": "Библиотекарь Айвз"
+      },
+      "text": {
+        "en": "A silent scribe took the scrolls. Ink wraiths hide in the library.",
+        "ru": "Безмолвный писарь забрал свитки. В библиотеке прячутся чернильные призраки."
+      }
+    },
+    {
+      "speaker": {
+        "en": "Knight",
+        "ru": "Рыцарь"
+      },
+      "text": {
+        "en": "I will find the scrolls and bring them back.",
+        "ru": "Я найду свитки и верну их."
+      }
+    }
+  ]
+}

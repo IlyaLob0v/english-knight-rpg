@@ -222,6 +222,20 @@ describe("module result → AGS", () => {
     expect(res.json()).toMatchObject({ passed: true, lms: "not_lti" });
   });
 
+  it("keeps a returning guest's player id and describes the session", async () => {
+    const { app } = await harness();
+    const first = (await app.inject({ method: "POST", url: "/session/guest" })).json();
+    const again = (await app.inject({ method: "POST", url: "/session/guest", payload: { player_id: first.player_id } })).json();
+    expect(again.player_id).toBe(first.player_id);
+    expect(again.registration).not.toBe(first.registration);
+    const forged = (await app.inject({ method: "POST", url: "/session/guest", payload: { player_id: "lti_admin" } })).json();
+    expect(forged.player_id).toMatch(/^guest_[0-9a-f]{8}$/);
+
+    const me = await app.inject({ url: "/session/me", headers: { authorization: `Bearer ${again.token}` } });
+    expect(me.json()).toEqual({ player_id: first.player_id, registration: again.registration, xapi_base_iri: "https://knight.example.com", lti: null });
+    expect((await app.inject({ url: "/session/me" })).statusCode).toBe(401);
+  });
+
   it("appends /scores before the query string", () => {
     expect(appendPath("https://lms.test/li/9?x=1", "scores")).toBe("https://lms.test/li/9/scores?x=1");
     expect(appendPath("https://lms.test/li/9/", "scores")).toBe("https://lms.test/li/9/scores");
