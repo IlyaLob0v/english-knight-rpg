@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://knight.example.com/schemas/task-set.schema.json",
+  "title": "Task set",
+  "description": "All tasks of one module. The engine knows only the task types; everything else here is data.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "module_id", "tasks"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": "1.0" },
+    "module_id": { "type": "string", "pattern": "^(A1|A2|B1|B2|C1|C2)_[A-Za-z0-9]+_[0-9]{2}$" },
+    "tasks": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/task" } }
+  },
+  "$defs": {
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "concept_id", "type", "difficulty", "presentation", "answer"],
+      "properties": {
+        "task_id": { "type": "string", "pattern": "^(A1|A2|B1|B2|C1|C2)_[A-Za-z0-9]+_[0-9]{2}_[a-z0-9_]+$" },
+        "concept_id": { "type": "string", "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)+$" },
+        "type": { "enum": ["choice", "gap_fill", "transform", "order_words"] },
+        "difficulty": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "presentation": { "$ref": "#/$defs/presentation" },
+        "answer": { "$ref": "#/$defs/answer" },
+        "combat": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "damage": { "type": "integer", "minimum": 1 },
+            "time_limit_s": { "type": "integer", "minimum": 3 }
+          }
+        },
+        "tags": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "choice" } } },
+          "then": { "properties": { "presentation": { "type": "object", "required": ["options"] } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "order_words" } } },
+          "then": { "properties": { "presentation": { "type": "object", "required": ["tokens"] } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "transform" } } },
+          "then": { "properties": { "presentation": { "type": "object", "required": ["source"] } } }
+        }
+      ]
+    },
+    "presentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prompt"],
+      "properties": {
+        "speaker": { "type": "string", "minLength": 1 },
+        "prompt": { "type": "string", "minLength": 1 },
+        "instruction_ru": { "type": "string", "minLength": 1 },
+        "hint": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1, "description": "transform: the sentence to transform" },
+        "options": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "text"],
+            "properties": { "id": { "type": "string", "pattern": "^[a-z0-9_]+$" }, "text": { "type": "string", "minLength": 1 } }
+          }
+        },
+        "tokens": { "type": "array", "minItems": 2, "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "answer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accepted"],
+      "properties": {
+        "accepted": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "choice: option ids; other types: accepted strings, compared after normalization"
+        },
+        "case_sensitive": { "type": "boolean", "default": false },
+        "known_errors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["match", "error_type"],
+            "properties": {
+              "match": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+              "error_type": { "type": "string" },
+              "feedback": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

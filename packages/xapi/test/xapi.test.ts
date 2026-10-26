@@ -1,0 +1,139 @@
+import { describe, expect, it } from "vitest";
+import { isoDuration, KnightProfile, LrsClient, MemoryOutboxStore, Outbox, StatementBuilder, validateStatement, type SendOutcome, type Statement } from "../src/index.js";
+
+const builder = new StatementBuilder(new KnightProfile("https://knight.example.com/"));
+const make = (n: number): Statement[] =>
+  Array.from({ length: n }, (_, i) =>
+    builder.defeated({ playerId: "p1", enemyId: `enemy_${i}`, id: `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`, timestamp: new Date(0) }),
+  );
+
+describe("StatementBuilder", () => {
+  it("emits valid statements for every verb, with a pseudonymous account actor", () => {
+    const common = { playerId: "p1", contentVersion: "A1_PastSimple_01@3", cefrLevel: "A1" };
+    const all = [
+      builder.launched({ ...common, trackId: "main_a1" }),
+      builder.built({ ...common, buildingId: "forge", moduleId: "A1_PastSimple_01" }),
+      builder.defeated({ ...common, enemyId: "ash_golem" }),
+      builder.conceptMastered({ ...common, conceptId: "past_simple.irregular", moduleId: "A1_PastSimple_01", retrievability: 0.93456 }),
+      builder.moduleResult({ ...common, moduleId: "A1_PastSimple_01", verb: "passed", scoreRaw: 9, scoreMax: 10 }),
+    ];
+    for (const s of all) {
+      expect(validateStatement(s)).toMatchObject({ ok: true });
+      expect(s.actor).toEqual({ objectType: "Agent", account: { homePage: "https://knight.example.com", name: "p1" } });
+      expect(s.context?.contextActivities?.category).toEqual([{ id: "https://knight.example.com/xapi/profile/knight-v1" }]);
+    }
+    expect(all[1]!.verb.id).toBe("https://knight.example.com/xapi/verbs/built");
+    expect(all[3]!.verb.id).toBe("http://adlnet.gov/expapi/verbs/mastered");
+  });
+
+  it("formats durations as ISO 8601", () => {
+    expect(isoDuration(8400)).toBe("PT8.4S");
+    expect(isoDuration(0)).toBe("PT0S");
+    expect(isoDuration(61_000)).toBe("PT1M1S");
+    expect(isoDuration(3_600_000)).toBe("PT1H");
+  });
+});
+
+describe("validateStatement", () => {
+  it("rejects email actors, bad ids and out-of-range scores", () => {
+    const [s] = make(1);
+    expect(validateStatement({ ...s, actor: { mbox: "mailto:a@b.c", account: s!.actor.account } }).ok).toBe(false);
+    expect(validateStatement({ ...s, id: "not-a-uuid" }).ok).toBe(false);
+    expect(validateStatement({ ...s, result: { score: { raw: 11, min: 0, max: 10 } } }).ok).toBe(false);
+    expect(validateStatement({ ...s, verb: { id: "answered" } }).ok).toBe(false);
+  });
+});
+
+function fakeFetch(responses: (Response | Error)[]) {
+  const calls: { url: string; init: RequestInit }[] = [];
+  const fn = (async (url: string, init: RequestInit) => {
+    calls.push({ url, init });
+    const r = responses.shift() ?? new Response(null, { status: 204 });
+    if (r instanceof Error) throw r;
+    return r;
+  }) as unknown as typeof fetch;
+  return { fn, calls };
+}
+
+describe("LrsClient", () => {
+  it("posts to /statements with xAPI headers and basic auth", async () => {
+    const f = fakeFetch([new Response(JSON.stringify(["id"]), { status: 200 })]);
+    const lrs = new LrsClient({ endpoint: "https://lrs.test/xapi", key: "k", secret: "s", fetch: f.fn });
+    expect(await lrs.send(make(1))).toMatchObject({ kind: "sent" });
+    const { url, init } = f.calls[0]!;
+    expect(url).toBe("https://lrs.test/xapi/statements");
+    expect((init.headers as Record<string, string>)["X-Experience-API-Version"]).toBe("1.0.3");
+    expect((init.headers as Record<string, string>).Authorization).toBe(`Basic ${btoa("k:s")}`);
+  });
+
+  it("classifies failures", async () => {
+    const f = fakeFetch([
+      new Error("ECONNRESET"),
+      new Response("busy", { status: 503, headers: { "Retry-After": "7" } }),
+      new Response("bad", { status: 400 }),
+      new Response("conflict", { status: 409 }),
+    ]);
+    const lrs = new LrsClient({ endpoint: "https://lrs.test/xapi/", key: "k", secret: "s", fetch: f.fn });
+    expect(await lrs.send(make(1))).toMatchObject({ kind: "retry" });
+    expect(await lrs.send(make(1))).toEqual({ kind: "retry", reason: "HTTP 503", retryAfterMs: 7000 });
+    expect(await lrs.send(make(1))).toMatchObject({ kind: "rejected", status: 400 });
+    expect(await lrs.send(make(1))).toMatchObject({ kind: "rejected", status: 409 });
+  });
+});
+
+describe("Outbox", () => {
+  it("delivers offline-queued statements once the network is back, without duplicates", async () => {
+    let now = 0;
+    let online = false;
+    const received = new Map<string, number>();
+    const sink = {
+      send: async (batch: Statement[]): Promise<SendOutcome> => {
+        if (!online) return { kind: "retry", reason: "offline" };
+        for (const s of batch) received.set(s.id, (received.get(s.id) ?? 0) + 1);
+        return { kind: "sent", ids: batch.map((s) => s.id) };
+      },
+    };
+    const store = new MemoryOutboxStore();
+    const outbox = new Outbox(store, sink, { now: () => now, random: () => 1, batchSize: 10 });
+    const statements = make(25);
+
+    expect(await outbox.enqueue(statements)).toBe(25);
+    expect(await outbox.enqueue(statements.slice(0, 5))).toBe(0); // resend of the same ids is ignored
+    expect(await outbox.flush()).toMatchObject({ sent: 0, retried: 10 });
+
+    online = true;
+    now += 1000; // still inside the backoff window for the failed batch
+    expect((await outbox.flush()).sent).toBe(15);
+    now += 60_000;
+    expect((await outbox.flush()).sent).toBe(10);
+
+    expect(received.size).toBe(25);
+    expect([...received.values()].every((n) => n === 1)).toBe(true);
+    expect(await store.pendingCount()).toBe(0);
+  });
+
+  it("isolates one rejected statement instead of losing the batch", async () => {
+    const statements = make(3);
+    const bad = statements[1]!.id;
+    const store = new MemoryOutboxStore();
+    const outbox = new Outbox(store, {
+      send: async (batch) =>
+        batch.some((s) => s.id === bad) ? { kind: "rejected", status: 400, reason: "bad" } : { kind: "sent", ids: batch.map((s) => s.id) },
+    });
+    await outbox.enqueue(statements);
+    expect(await outbox.flush()).toEqual({ sent: 2, retried: 0, dead: 1 });
+    expect([...store.dead.keys()]).toEqual([bad]);
+  });
+
+  it("dead-letters after maxAttempts", async () => {
+    let now = 0;
+    const store = new MemoryOutboxStore();
+    const outbox = new Outbox(store, { send: async () => ({ kind: "retry", reason: "down" }) }, { now: () => now, maxAttempts: 3 });
+    await outbox.enqueue(make(1));
+    for (let i = 0; i < 3; i++) {
+      await outbox.flush();
+      now += 3_600_000;
+    }
+    expect(store.dead.size).toBe(1);
+  });
+});

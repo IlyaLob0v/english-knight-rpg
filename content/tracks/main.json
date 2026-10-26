@@ -1,0 +1,17 @@
+{
+  "$schema": "../../packages/content/schemas/track.schema.json",
+  "schema_version": "1.0",
+  "track_id": "main_a1",
+  "title": { "en": "The Ruined Gate", "ru": "Разрушенные врата" },
+  "chapters": [
+    {
+      "chapter_id": "ch1_ruined_gate",
+      "story_intro": "story/ch1_intro.json",
+      "steps": [
+        { "module_id": "A1_VerbToBe_01", "quest_id": "q_gatekeeper", "unlocks_building": "town_hall", "boss": "rusted_sentinel" },
+        { "module_id": "A1_PastSimple_01", "quest_id": "q_forge_fire", "unlocks_building": "forge", "boss": "ash_golem" },
+        { "module_id": "A1_Articles_01", "quest_id": "q_lost_scrolls", "unlocks_building": "library", "boss": "silent_scribe" }
+      ]
+    }
+  ]
+}

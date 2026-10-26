@@ -1,0 +1,12 @@
+{
+  "$schema": "../../packages/content/schemas/enemies.schema.json",
+  "schema_version": "1.0",
+  "enemies": [
+    { "enemy_id": "gate_rat", "name": { "en": "Gate Rat", "ru": "Привратная крыса" }, "sprite": "enemies/gate_rat.png", "role": "minion", "hp": 20, "damage": 4 },
+    { "enemy_id": "ash_imp", "name": { "en": "Ash Imp", "ru": "Пепельный бес" }, "sprite": "enemies/ash_imp.png", "role": "minion", "hp": 30, "damage": 6 },
+    { "enemy_id": "ink_wraith", "name": { "en": "Ink Wraith", "ru": "Чернильный призрак" }, "sprite": "enemies/ink_wraith.png", "role": "elite", "hp": 50, "damage": 8 },
+    { "enemy_id": "rusted_sentinel", "name": { "en": "Rusted Sentinel", "ru": "Ржавый страж" }, "sprite": "enemies/rusted_sentinel.png", "role": "boss", "hp": 100, "damage": 10 },
+    { "enemy_id": "ash_golem", "name": { "en": "Ash Golem", "ru": "Пепельный голем" }, "sprite": "enemies/ash_golem.png", "role": "boss", "hp": 120, "damage": 12 },
+    { "enemy_id": "silent_scribe", "name": { "en": "The Silent Scribe", "ru": "Безмолвный писарь" }, "sprite": "enemies/silent_scribe.png", "role": "boss", "hp": 120, "damage": 12 }
+  ]
+}
