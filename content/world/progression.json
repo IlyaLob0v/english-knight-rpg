@@ -1,0 +1,16 @@
+{
+  "$schema": "../../packages/content/schemas/progression.schema.json",
+  "schema_version": "1.0",
+  "knight": { "base_hp": 30, "hints_per_battle": 1 },
+  "levels": { "xp_to_reach": [0, 100, 250, 450, 700, 1000, 1400, 1900, 2500, 3200], "hp_per_level": 3 },
+  "rewards": {
+    "answer_correct": { "xp": 5 },
+    "answer_typo": { "xp": 2 },
+    "encounter_won": { "xp": 20, "kp": 10 },
+    "boss_passed": { "xp": 100, "kp": 40 },
+    "patrol_completed": { "xp": 50, "kp": 25 },
+    "building_repaired": { "xp": 20, "kp": 15 }
+  },
+  "patrol": { "size": 12, "task_cooldown_days": 3, "enemies": ["gate_rat", "rust_crow", "ash_imp"] },
+  "repair": { "threshold": 0.8, "task_count": 6 }
+}

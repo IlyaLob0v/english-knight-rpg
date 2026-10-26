@@ -28,19 +28,45 @@ export class BattleScene extends Phaser.Scene {
     super("battle");
   }
 
-  create(data: { step: number; kind: BattleKind }): void {
-    const { game } = services(this);
-    this.battle = game.startBattle(data.step, data.kind);
-    const { width } = this.scale;
-    this.cameras.main.setBackgroundColor(data.kind === "boss" ? 0x2a1a1a : 0x1f2433);
+  create(data: { kind: BattleKind; step?: number; building?: string }): void {
+    void this.start(data);
+  }
 
-    const title = data.kind === "boss" ? `Босс модуля «${this.battle.module.title.ru}»` : this.battle.module.title.ru;
-    this.add.text(width / 2, 24, title, { fontFamily: "Georgia, serif", fontSize: "18px", color: "#c9bb94" }).setOrigin(0.5);
-    if (data.kind === "boss") {
-      this.add
-        .text(width / 2, 48, `Нужно ${this.battle.need} верных ответов, можно ошибиться ${this.battle.allowedWrong} раз`, { fontFamily: "system-ui, sans-serif", fontSize: "13px", color: "#c9bb94" })
-        .setOrigin(0.5);
+  private async start(data: { kind: BattleKind; step?: number; building?: string }): Promise<void> {
+    const { game, ui } = services(this);
+    try {
+      this.battle =
+        data.kind === "patrol"
+          ? game.startPatrol()
+          : data.kind === "repair"
+            ? await game.startRepair(data.building!)
+            : game.startBattle(data.step!, data.kind);
+    } catch (e) {
+      // The city can be out of date (e.g. the building was repaired in another battle).
+      showMenu(ui, "Сейчас не получится", [e instanceof Error ? e.message : String(e)], [{ label: "В город", primary: true, run: () => this.scene.start("city") }], false);
+      return;
     }
+    const { width } = this.scale;
+    this.cameras.main.setBackgroundColor(data.kind === "boss" ? 0x2a1a1a : data.kind === "encounter" ? 0x1f2433 : 0x1f2f2a);
+
+    const b = this.battle;
+    const building = game.repairTarget(b);
+    const title =
+      b.kind === "boss"
+        ? `Босс модуля «${b.module!.title.ru}»`
+        : b.kind === "patrol"
+          ? "Дневной патруль"
+          : b.kind === "repair"
+            ? `Ремонт: ${building?.name.ru ?? ""}`
+            : b.module!.title.ru;
+    this.add.text(width / 2, 24, title, { fontFamily: "Georgia, serif", fontSize: "18px", color: "#c9bb94" }).setOrigin(0.5);
+    const subtitle =
+      b.kind === "boss"
+        ? `Нужно ${b.need} верных ответов, можно ошибиться ${b.allowedWrong} раз`
+        : b.scripted
+          ? `${b.script!.length} заданий из того, что пора повторить. Проиграть нельзя: это тренировка.`
+          : undefined;
+    if (subtitle) this.add.text(width / 2, 48, subtitle, { fontFamily: "system-ui, sans-serif", fontSize: "13px", color: "#c9bb94" }).setOrigin(0.5);
 
     this.knight = this.fighter(width * 0.22, "Knight", "Рыцарь", 0x3a7bd5, 90);
     const e = this.battle.enemy;
@@ -85,7 +111,7 @@ export class BattleScene extends Phaser.Scene {
     const labels = new Map(game.bundle.taxonomy.error_types.map((t) => [t.id, t.label.ru]));
     while (this.battle.state === "ongoing") {
       const task = this.battle.nextTask();
-      const answer = await askTask(ui, task);
+      const answer = await askTask(ui, task, { hintsLeft: this.battle.hintsLeft });
       const { outcome, strike } = await game.answer(this.battle, task, answer);
       if (strike.kind === "miss") await this.lunge(this.foe, this.knight);
       else await this.lunge(this.knight, this.foe);
@@ -105,20 +131,32 @@ export class BattleScene extends Phaser.Scene {
 
     const lines = [`Верных ответов: ${b.correct} из ${b.answered}`];
     if (end.moduleResult) {
-      lines.push(`Результат модуля: ${Math.round(end.moduleResult.scaled * 100)}% (нужно ${Math.round(b.module.mastery.pass_score * 100)}%)`);
+      lines.push(`Результат модуля: ${Math.round(end.moduleResult.scaled * 100)}% (нужно ${Math.round(b.module!.mastery.pass_score * 100)}%)`);
     }
+    if (end.earned.xp || end.earned.kp) lines.push(`Награда: +${end.earned.xp} XP, +${end.earned.kp} KP`);
+    if (end.patrolRewarded === false) lines.push("Награда за патруль сегодня уже получена; XP за ответы засчитан.");
+    if (end.levelUp) lines.push(`Новый уровень рыцаря: ${end.levelUp}!`);
+    if (end.unlockedBuilding) lines.push(`В городе открылась стройка: ${end.unlockedBuilding.name.ru} (${end.unlockedBuilding.cost_kp} KP).`);
+    if (end.repaired.length) lines.push(`Отремонтировано: ${end.repaired.map((x) => x.name.ru).join(", ")}.`);
     const title =
-      end.state === "won"
-        ? b.kind === "boss"
-          ? `Победа над боссом: ${b.enemy.name.ru}. Модуль освоен!`
-          : `Победа: ${b.enemy.name.ru}`
-        : b.kind === "boss"
-          ? "Рыцарь отступает. Потренируйся в обычных боях и возвращайся."
-          : "Рыцарь отступает.";
+      b.kind === "patrol"
+        ? "Патруль окончен"
+        : b.kind === "repair"
+          ? end.repaired.length
+            ? "Ремонт окончен"
+            : "Работа продвинулась, но трещины остались. Повтори ещё."
+          : end.state === "won"
+            ? b.kind === "boss"
+              ? `Победа над боссом: ${b.enemy.name.ru}. Модуль освоен!`
+              : `Победа: ${b.enemy.name.ru}`
+            : b.kind === "boss"
+              ? "Рыцарь отступает. Потренируйся в обычных боях и возвращайся."
+              : "Рыцарь отступает.";
+    const home = b.scripted || end.unlockedBuilding ? "city" : "map";
     const back = async () => {
       if (end.outro) await playStory(ui, end.outro);
-      this.scene.start("map");
+      this.scene.start(home);
     };
-    showMenu(ui, title, lines, [{ label: "На карту", primary: true, run: () => void back() }], false);
+    showMenu(ui, title, lines, [{ label: home === "city" ? "В город" : "На карту", primary: true, run: () => void back() }], false);
   }
 }

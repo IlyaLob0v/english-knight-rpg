@@ -115,6 +115,26 @@ describe("validator catches", () => {
     step.outro = "no_such_story";
     expect(codes(src)).toEqual(expect.arrayContaining(["ref.enemy", "ref.story"]));
   });
+
+  it("a level curve that does not grow and a boss on patrol", async () => {
+    const src = await realSource();
+    const rules = src.progression![0]!.data as any;
+    rules.levels.xp_to_reach = [0, 100, 100];
+    rules.patrol.enemies = ["ash_golem"];
+    expect(codes(src)).toEqual(expect.arrayContaining(["progression.levels", "ref.enemy"]));
+  });
+
+  it("a repair threshold outside 0..1", async () => {
+    const src = await realSource();
+    (src.progression![0]!.data as any).repair.threshold = 1.2;
+    expect(codes(src)).toContain("schema");
+  });
+
+  it("but accepts content without progression rules", async () => {
+    const src = await realSource();
+    delete src.progression;
+    expect(validateContent(src).ok).toBe(true);
+  });
 });
 
 describe("findCycles", () => {

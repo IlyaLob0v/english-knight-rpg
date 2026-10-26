@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import type { StepStatus, StepView } from "../game/progress.js";
 import { playStory, showMenu } from "../ui/dialog.js";
+import { drawHud, textButton } from "./hud.js";
 import { services } from "./services.js";
 
 const STATUS_COLOR: Record<StepStatus, number> = { locked: 0x4b4f5c, open: 0x3a7bd5, boss_ready: 0xd58a3a, cleared: 0x4caf6a };
@@ -18,6 +19,9 @@ export class MapScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(0x1d2a1f);
     this.add.text(width / 2, 36, game.track.title.en, { fontFamily: "Georgia, serif", fontSize: "30px", color: "#f3e7c4" }).setOrigin(0.5);
     this.add.text(width / 2, 70, game.track.title.ru, { fontFamily: "Georgia, serif", fontSize: "16px", color: "#c9bb94" }).setOrigin(0.5);
+
+    drawHud(this, game);
+    textButton(this, width - 70, 34, "Город", () => this.scene.start("city"));
 
     const steps = game.steps();
     const points = steps.map((_, i) => ({

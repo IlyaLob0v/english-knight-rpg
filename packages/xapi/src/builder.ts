@@ -118,6 +118,12 @@ export class StatementBuilder {
     return this.base(i, "built", { objectType: "Activity", id: p.building(i.buildingId) }, { parent: [{ id: p.module(i.moduleId) }] });
   }
 
+  /** A damaged building is whole again: the concepts of its module were repeated above the repair threshold. */
+  repaired(i: Common & { buildingId: string; moduleId: string }): Statement {
+    const p = this.profile;
+    return this.base(i, "repaired", { objectType: "Activity", id: p.building(i.buildingId) }, { parent: [{ id: p.module(i.moduleId) }] });
+  }
+
   defeated(i: Common & { enemyId: string; moduleId?: string }): Statement {
     const p = this.profile;
     return this.base(i, "defeated", { objectType: "Activity", id: p.enemy(i.enemyId) },

@@ -45,6 +45,8 @@ export interface PatrolOptions {
   lastSeen: Map<string, number>;
   now: Date;
   size?: number;
+  /** Passed to pickTask: a task is not repeated within this many days if its concept has another. */
+  cooldownDays?: number;
   random?: () => number;
 }
 
@@ -75,6 +77,7 @@ export function buildPatrol(bundle: ContentBundle, scheduler: ConceptScheduler, 
         lastSeen: o.lastSeen,
         now: o.now.getTime(),
         exclude: used,
+        ...(o.cooldownDays !== undefined ? { cooldownDays: o.cooldownDays } : {}),
         ...(o.random ? { random: o.random } : {}),
       });
       if (!task) continue;

@@ -57,3 +57,23 @@ button.token.placed { background: #3d4a3a; }
 .feedback > button, .menu-actions, .story-actions { margin-top: 14px; }
 .menu-actions, .story-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 .story-speaker { color: var(--accent); font-weight: 600; }
+
+.menu-title small { font-size: 14px; color: var(--ink-dim); }
+.reward { color: var(--accent); font-weight: 600; }
+
+/* Statistics screen: a full panel over the canvas. */
+#ui:has(.stats) { inset: 0; align-items: center; }
+.stats { width: min(860px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; background: var(--panel); border: 2px solid var(--edge); border-radius: 10px; padding: 18px 20px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); }
+.stats h2 { font-family: Georgia, serif; font-size: 22px; margin: 0 0 6px; font-weight: normal; }
+.stats h3 { font-family: Georgia, serif; font-size: 17px; margin: 18px 0 6px; font-weight: normal; color: var(--accent); }
+.stats .muted { color: var(--ink-dim); font-size: 14px; }
+.stats table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.stats th, .stats td { text-align: left; padding: 6px 8px; border-bottom: 1px solid rgba(138, 116, 72, 0.35); vertical-align: top; }
+.stats th { color: var(--ink-dim); font-weight: normal; }
+.stats td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stats .bar { display: inline-block; height: 8px; background: var(--bad); border-radius: 4px; vertical-align: middle; margin-right: 6px; }
+.stats .recall-low { color: var(--bad); }
+.stats .recall-ok { color: var(--good); }
+.stats .tabs { display: flex; gap: 8px; margin: 10px 0; }
+.stats .tabs button[aria-pressed="true"] { background: var(--accent); color: #1a1208; }
+.stats [lang="en"] { font-family: Georgia, serif; }

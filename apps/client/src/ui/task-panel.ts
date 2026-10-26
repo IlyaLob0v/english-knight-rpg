@@ -20,7 +20,12 @@ const TYPE_LABEL: Record<Task["type"], string> = {
  * Renders a task by its type and resolves with the player's answer. Everything the
  * player reads comes from the task itself: this file holds no task text.
  */
-export function askTask(root: HTMLElement, task: Task, now: () => number = performance.now.bind(performance)): Promise<Answer> {
+export function askTask(
+  root: HTMLElement,
+  task: Task,
+  o: { hintsLeft?: number; now?: () => number } = {},
+): Promise<Answer> {
+  const now = o.now ?? performance.now.bind(performance);
   return new Promise((resolve) => {
     const started = now();
     let hintUsed = false;
@@ -80,8 +85,14 @@ export function askTask(root: HTMLElement, task: Task, now: () => number = perfo
     panel.append(body);
 
     if (p.hint) {
+      const left = o.hintsLeft ?? Infinity;
       const hint = el("div", { class: "task-hint", hidden: "" }, p.hint);
-      const btn = el("button", { class: "link", onclick: () => ((hintUsed = true), hint.removeAttribute("hidden"), btn.remove()) }, "Подсказка");
+      const label = Number.isFinite(left) ? `Подсказка (осталось ${left})` : "Подсказка";
+      const btn = el("button", { class: "link", onclick: () => ((hintUsed = true), hint.removeAttribute("hidden"), btn.remove()) }, label) as HTMLButtonElement;
+      if (left <= 0) {
+        btn.disabled = true;
+        btn.textContent = "Подсказки кончились";
+      }
       panel.append(btn, hint);
     }
     panel.append(timer);

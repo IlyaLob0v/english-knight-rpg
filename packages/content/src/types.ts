@@ -114,6 +114,33 @@ export interface Story {
   lines: StoryLine[];
 }
 
+export interface Reward {
+  xp?: number;
+  kp?: number;
+}
+
+/** Economy and the daily loop: XP, levels, KP, patrol and repair. One file, world/progression.json. */
+export interface Progression {
+  schema_version: "1.0";
+  knight: { base_hp: number; hints_per_battle: number };
+  /** xp_to_reach[i] is the total XP needed for level i + 1. */
+  levels: { xp_to_reach: number[]; hp_per_level: number };
+  rewards: {
+    /** Per correct answer, multiplied by the task difficulty. */
+    answer_correct: Reward;
+    answer_typo?: Reward;
+    encounter_won: Reward;
+    /** Only the first time a module's boss falls. */
+    boss_passed: Reward;
+    /** Once per day. */
+    patrol_completed: Reward;
+    building_repaired: Reward;
+  };
+  patrol: { size: number; task_cooldown_days: number; enemies: string[] };
+  /** A building needs repair when a studied concept of its module drops below `threshold` recall probability. */
+  repair: { threshold: number; task_count: number };
+}
+
 export interface ErrorType {
   id: string;
   label: Localized;
@@ -142,6 +169,8 @@ export interface ContentSource {
   enemies: SourceFile[];
   /** Optional so that older uploads without stories still validate. */
   stories?: SourceFile[];
+  /** At most one file; the game falls back to built-in defaults without it. */
+  progression?: SourceFile[];
 }
 
 /** Validated content, flattened and indexed: this is what the game and the engine consume. */
@@ -157,4 +186,5 @@ export interface ContentBundle {
   buildings: Building[];
   enemies: Enemy[];
   stories: Story[];
+  progression?: Progression;
 }
