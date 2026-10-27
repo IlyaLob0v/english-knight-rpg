@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moonbridge.example.com/schemas/episode.schema.json",
+  "title": "Moonbridge episode",
+  "description": "A visual-novel scene for one unit. Steps run in order; a task step branches on the answer, so a mistake can lead to its own (funny) outcome. Branches are data: adding one never needs code.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "episode_id", "module_id", "place_id", "title", "steps"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": "2.0" },
+    "episode_id": { "type": "string", "pattern": "^[A-Za-z0-9_]+$" },
+    "module_id": { "type": "string", "pattern": "^(A1|A2|B1|B2|C1|C2)_[A-Za-z0-9]+_[0-9]{2}$", "description": "The unit whose tasks the episode uses." },
+    "place_id": { "$ref": "#/$defs/id" },
+    "title": { "$ref": "#/$defs/localized" },
+    "steps": {
+      "type": "array",
+      "minItems": 2,
+      "description": "The first step is the start. Without next / on_correct / on_wrong a step continues with the step below it.",
+      "items": { "oneOf": [{ "$ref": "#/$defs/line" }, { "$ref": "#/$defs/task" }, { "$ref": "#/$defs/end" }] }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+    "localized": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["en", "ru"],
+      "properties": { "en": { "type": "string", "minLength": 1 }, "ru": { "type": "string", "minLength": 1 } }
+    },
+    "emotion": { "enum": ["neutral", "happy", "upset"] },
+    "line": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "speaker", "text"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "const": "line" },
+        "speaker": { "type": "string", "pattern": "^[a-z0-9_]+$", "description": "character_id, or \"narrator\" / \"player\"." },
+        "emotion": { "$ref": "#/$defs/emotion" },
+        "text": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["en"],
+          "properties": { "en": { "type": "string", "minLength": 1 }, "ru": { "type": "string", "minLength": 1, "description": "Translation shown on tap." } }
+        },
+        "next": { "$ref": "#/$defs/id" }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "task_id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "const": "task" },
+        "task_id": { "type": "string" },
+        "speaker": { "type": "string", "pattern": "^[a-z0-9_]+$", "description": "Who asks; the task prompt is shown as their line." },
+        "emotion": { "$ref": "#/$defs/emotion" },
+        "on_correct": { "$ref": "#/$defs/id" },
+        "on_wrong": { "$ref": "#/$defs/id" }
+      }
+    },
+    "end": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "const": "end" }
+      }
+    }
+  }
+}

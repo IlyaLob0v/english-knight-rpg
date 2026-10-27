@@ -1,6 +1,6 @@
-import { validateContent } from "@knight/content";
-import { buildBundle, loadContentDir } from "@knight/content/node";
-import { LrsClient, MemoryOutboxStore, Outbox, type StatementSink } from "@knight/xapi";
+import { validateContent } from "@moonbridge/content";
+import { buildBundle, loadContentDir } from "@moonbridge/content/node";
+import { LrsClient, MemoryOutboxStore, Outbox, type StatementSink } from "@moonbridge/xapi";
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { connectPostgres, migrate } from "./db/sql.js";

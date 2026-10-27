@@ -9,5 +9,3 @@ coverage/
 # Local LMS stack: generated keys and settings
 docker/state/
 
-# End-to-end failure screenshots
-e2e/.artifacts/

@@ -1,13 +1,13 @@
 {
-  "name": "@knight/learning",
+  "name": "@moonbridge/learning",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Learning engine: answer checking, error classification, FSRS on concepts, attempt journal. No game-engine dependencies.",
   "exports": { ".": "./src/index.ts" },
   "dependencies": {
-    "@knight/content": "workspace:*",
-    "@knight/xapi": "workspace:*",
+    "@moonbridge/content": "workspace:*",
+    "@moonbridge/xapi": "workspace:*",
     "ts-fsrs": "^5.4.2"
   }
 }

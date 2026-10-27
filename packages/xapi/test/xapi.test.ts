@@ -1,31 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { conceptErrors, isoDuration, KnightProfile, LrsClient, MemoryOutboxStore, Outbox, StatementBuilder, validateStatement, type SendOutcome, type Statement } from "../src/index.js";
+import { conceptErrors, isoDuration, XapiProfile, LrsClient, MemoryOutboxStore, Outbox, StatementBuilder, validateStatement, type SendOutcome, type Statement } from "../src/index.js";
 
-const builder = new StatementBuilder(new KnightProfile("https://knight.example.com/"));
+const builder = new StatementBuilder(new XapiProfile("https://moonbridge.example.com/"));
 const make = (n: number): Statement[] =>
   Array.from({ length: n }, (_, i) =>
-    builder.defeated({ playerId: "p1", enemyId: `enemy_${i}`, id: `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`, timestamp: new Date(0) }),
+    builder.unlocked({ playerId: "p1", placeId: `place_${i}`, moduleId: "A1_PastSimple_01", id: `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`, timestamp: new Date(0) }),
   );
 
 describe("StatementBuilder", () => {
   it("emits valid statements for every verb, with a pseudonymous account actor", () => {
     const common = { playerId: "p1", contentVersion: "A1_PastSimple_01@3", cefrLevel: "A1" };
     const all = [
-      builder.launched({ ...common, trackId: "main_a1" }),
-      builder.built({ ...common, buildingId: "forge", moduleId: "A1_PastSimple_01" }),
-      builder.defeated({ ...common, enemyId: "ash_golem" }),
+      builder.launched({ ...common, courseId: "english_a1_a2" }),
+      builder.unlocked({ ...common, placeId: "night_cafe", moduleId: "A1_PastSimple_01" }),
       builder.conceptMastered({ ...common, conceptId: "past_simple.irregular", moduleId: "A1_PastSimple_01", retrievability: 0.93456 }),
-      builder.moduleResult({ ...common, moduleId: "A1_PastSimple_01", verb: "passed", scoreRaw: 9, scoreMax: 10 }),
-      builder.repaired({ ...common, buildingId: "forge", moduleId: "A1_PastSimple_01" }),
+      builder.moduleResult({ ...common, moduleId: "A1_PastSimple_01", verb: "passed", scoreRaw: 9, scoreMax: 10, courseId: "english_a1_a2" }),
     ];
     for (const s of all) {
       expect(validateStatement(s)).toMatchObject({ ok: true });
-      expect(s.actor).toEqual({ objectType: "Agent", account: { homePage: "https://knight.example.com", name: "p1" } });
-      expect(s.context?.contextActivities?.category).toEqual([{ id: "https://knight.example.com/xapi/profile/knight-v1" }]);
+      expect(s.actor).toEqual({ objectType: "Agent", account: { homePage: "https://moonbridge.example.com", name: "p1" } });
+      expect(s.context?.contextActivities?.category).toEqual([{ id: "https://moonbridge.example.com/xapi/profile/moonbridge-v1" }]);
     }
-    expect(all[1]!.verb.id).toBe("https://knight.example.com/xapi/verbs/built");
-    expect(all[3]!.verb.id).toBe("http://adlnet.gov/expapi/verbs/mastered");
-    expect(all[5]!.verb.id).toBe("https://knight.example.com/xapi/verbs/repaired");
+    expect(all[1]!.verb.id).toBe("https://moonbridge.example.com/xapi/verbs/unlocked");
+    expect(all[1]!.object.id).toBe("https://moonbridge.example.com/xapi/moonbridge/places/night_cafe");
+    expect(all[2]!.verb.id).toBe("http://adlnet.gov/expapi/verbs/mastered");
+    expect(all[3]!.context?.contextActivities?.parent).toEqual([{ id: "https://moonbridge.example.com/xapi/courses/english_a1_a2" }]);
   });
 
   it("formats durations as ISO 8601", () => {
@@ -142,7 +141,7 @@ describe("Outbox", () => {
 
 describe("conceptErrors", () => {
   it("asks the LRS for answered statements related to the concept and keeps the wrong ones", async () => {
-    const profile = new KnightProfile("https://knight.test");
+    const profile = new XapiProfile("https://moonbridge.test");
     const b = new StatementBuilder(profile);
     const common = { playerId: "p1", moduleId: "A1_PastSimple_01", conceptId: "past_simple.irregular", interactionType: "fill-in" as const, correctResponses: ["went"], hintUsed: false, attempt: 1, durationMs: 1000 };
     const wrong = b.answered({ ...common, taskId: "A1_PastSimple_01_q3", response: "goed", success: false, errorType: "grammar.overgeneralization", correctForm: "went" });
@@ -164,7 +163,7 @@ describe("conceptErrors", () => {
     const errors = await conceptErrors(lrs, profile, "past_simple.irregular", { since: new Date("2026-10-19T00:00:00Z") });
     expect(Object.fromEntries(urls[0]!.searchParams)).toMatchObject({
       verb: "http://adlnet.gov/expapi/verbs/answered",
-      activity: "https://knight.test/xapi/concepts/past_simple.irregular",
+      activity: "https://moonbridge.test/xapi/concepts/past_simple.irregular",
       related_activities: "true",
       since: "2026-10-19T00:00:00.000Z",
     });

@@ -1,5 +1,7 @@
 # Стенд LMS: Moodle, LRS и Postgres на своём компьютере
 
+> **Заморожено с 27.10.2026** ([ADR 0008](adr/0008-moonbridge-platform.md)). Школа не работает в LMS; шлюз сохраняет LTI 1.3 и AGS на будущее. Игрового клиента рыцаря больше нет, поэтому шаги ниже, где ученик проходит бои, не выполнить до появления клиента платформы. Сквозной тест через Moodle можно запустить из тега `english-knight-v0.5`.
+
 Этот стенд проверяет всю цепочку интеграции, как она будет работать со школой: игра открывается из курса Moodle по LTI 1.3, оценка за модуль приходит в журнал Moodle через AGS, каждая попытка уходит в LRS как xAPI statement, а состояние шлюза хранится в Postgres.
 
 Нужны Docker (с `docker compose`), Node 22, pnpm и openssl. Порты: 5432 (Postgres), 8080 (Moodle), 8090 (LRS), 8787 (шлюз), 5173 (игра).
@@ -16,7 +18,7 @@ pnpm dev:client          # игра (второй терминал)
 `pnpm lms:up` (это `docker/setup.sh`) можно запускать повторно: он ничего не ломает и не дублирует. Что он делает:
 
 1. Создаёт ключ инструмента LTI `docker/state/tool-key.pem` (один раз; Moodle проверяет им подпись шлюза).
-2. Поднимает `compose.yaml`: Postgres с базами `knight`, `moodle`, `lrsql`; Yet SQL LRS; Moodle 4.5 LTS.
+2. Поднимает `compose.yaml`: Postgres с базами `moonbridge`, `moodle`, `lrsql`; Yet SQL LRS; Moodle 4.5 LTS.
 3. Настраивает Moodle (`docker/moodle/provision.php`): регистрирует шлюз как инструмент LTI 1.3 с сервисом оценок, создаёт курс **KNIGHT**, ученика, учителя и по активности на каждый модуль из `content/tracks/main.json`.
 4. Пишет настройки шлюза в `docker/state/gateway.env` и регистрацию Moodle в `docker/state/lti-platforms.json`.
 
@@ -24,17 +26,17 @@ pnpm dev:client          # игра (второй терминал)
 
 ## Как пройти вручную
 
-1. Открой http://localhost:8080 и войди учеником: `student` / `Knight-Student-1`.
-2. Курс **Knight of Words (test course)** → активность **Knight of Words: Words at the Gate**. Игра откроется внутри страницы Moodle, без отдельного входа.
-3. Пройди бои на первой точке карты и босса. Через несколько секунд после победы оценка появится в журнале: войди учителем (`teacher` / `Knight-Teacher-1`) → курс → «Оценки».
-4. Записи xAPI: админка LRS http://localhost:8090 (`admin` / `knight-admin`) или из терминала:
+1. Открой http://localhost:8080 и войди учеником: `student` / `Moonbridge-Student-1`.
+2. Курс **Moonbridge (test course)** → активность **Moonbridge: Words at the Gate**. Игра откроется внутри страницы Moodle, без отдельного входа.
+3. Пройди бои на первой точке карты и босса. Через несколько секунд после победы оценка появится в журнале: войди учителем (`teacher` / `Moonbridge-Teacher-1`) → курс → «Оценки».
+4. Записи xAPI: админка LRS http://localhost:8090 (`admin` / `moonbridge-admin`) или из терминала:
 
 ```bash
 pnpm lrs:errors verb_to_be.negative             # ошибки по концепту за 7 дней
 pnpm lrs:errors past_simple.irregular --days 30 --json
 ```
 
-Администратор Moodle: `admin` / `Knight-Admin-1`. Все пароли стенда — только для локальной проверки.
+Администратор Moodle: `admin` / `Moonbridge-Admin-1`. Все пароли стенда — только для локальной проверки.
 
 ## Автотест всей цепочки
 
@@ -66,7 +68,7 @@ pnpm e2e:lms             # HEADED=1 pnpm e2e:lms, чтобы смотреть в
 | Все попытки и ошибки | LRS | аналитика: ошибки по концептам, типам, времени |
 | Итоговая оценка за модуль | журнал Moodle | то, что видит учитель |
 
-Проверить очереди: `docker compose exec postgres psql -U postgres -d knight -c "SELECT status, count(*) FROM grade_outbox GROUP BY 1"` (то же для `xapi_outbox`). Строки `failed` и `dead` — то, что не ушло после всех повторов, в `last_error` причина.
+Проверить очереди: `docker compose exec postgres psql -U postgres -d moonbridge -c "SELECT status, count(*) FROM grade_outbox GROUP BY 1"` (то же для `xapi_outbox`). Строки `failed` и `dead` — то, что не ушло после всех повторов, в `last_error` причина.
 
 ## Подключение настоящей LMS школы
 

@@ -1,4 +1,4 @@
-import { normalizeAnswer, type Task } from "@knight/content";
+import { normalizeAnswer, type Task } from "@moonbridge/content";
 import { editDistance } from "./levenshtein.js";
 
 export type MatchKind = "accepted" | "known_error" | "typo" | "unclassified";

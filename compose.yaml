@@ -1,7 +1,7 @@
 # Local LMS stack for the gateway: Postgres, an xAPI LRS (Yet SQL LRS) and Moodle 4.5 LTS
 # as the LTI 1.3 platform. The gateway and the game run on the host (pnpm), see docs/lms-setup.md.
 # Dev credentials only: never put real student data into this stack.
-name: knight-of-words
+name: moonbridge
 
 services:
   postgres:
@@ -32,10 +32,10 @@ services:
       LRSQL_DB_USER: lrsql
       LRSQL_DB_PASSWORD: lrsql
       # The gateway's credentials (LRS_KEY / LRS_SECRET) and the admin UI login.
-      LRSQL_API_KEY_DEFAULT: knight-gateway
-      LRSQL_API_SECRET_DEFAULT: knight-gateway-secret
+      LRSQL_API_KEY_DEFAULT: moonbridge-gateway
+      LRSQL_API_SECRET_DEFAULT: moonbridge-gateway-secret
       LRSQL_ADMIN_USER_DEFAULT: admin
-      LRSQL_ADMIN_PASS_DEFAULT: knight-admin
+      LRSQL_ADMIN_PASS_DEFAULT: moonbridge-admin
       LRSQL_ALLOW_ALL_ORIGINS: "true"
     ports:
       - "8090:8080"
@@ -53,11 +53,11 @@ services:
       DB_USER: moodle
       DB_PASS: moodle
       MOODLE_USERNAME: admin
-      MOODLE_PASSWORD: Knight-Admin-1
+      MOODLE_PASSWORD: Moonbridge-Admin-1
       MOODLE_EMAIL: admin@example.com
       MOODLE_MAIL_NOREPLY_ADDRESS: noreply@example.com
       # No spaces: the image passes it to install.php unquoted.
-      MOODLE_SITENAME: Knight_of_Words_school
+      MOODLE_SITENAME: Moonbridge_school
       AUTO_UPDATE_MOODLE: "false"
     ports:
       - "8080:8080"

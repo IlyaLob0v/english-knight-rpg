@@ -3,7 +3,7 @@
 //   pnpm lrs:errors past_simple.irregular --days 30 --player player_ab12
 // Reads LRS_ENDPOINT / LRS_KEY / LRS_SECRET / XAPI_BASE_IRI like the gateway.
 import { parseArgs } from "node:util";
-import { conceptErrors, KnightProfile, LrsClient } from "@knight/xapi";
+import { conceptErrors, XapiProfile, LrsClient } from "@moonbridge/xapi";
 import { loadConfig } from "../config.js";
 
 const { positionals, values } = parseArgs({
@@ -22,7 +22,7 @@ if (!config.lrs) {
 }
 
 const since = new Date(Date.now() - Number(values.days) * 24 * 3600 * 1000);
-const errors = await conceptErrors(new LrsClient(config.lrs), new KnightProfile(config.xapiBaseIri), conceptId, {
+const errors = await conceptErrors(new LrsClient(config.lrs), new XapiProfile(config.xapiBaseIri), conceptId, {
   since,
   ...(values.player ? { playerId: values.player } : {}),
 });

@@ -1,4 +1,4 @@
-import type { Task } from "@knight/content";
+import type { Task } from "@moonbridge/content";
 import { beforeAll, describe, expect, it } from "vitest";
 import { checkAnswer, deriveRating, editDistance, Rating, typoBudget } from "../src/index.js";
 import { loadBundle } from "./fixtures.js";

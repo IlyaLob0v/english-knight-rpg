@@ -1,5 +1,5 @@
-import type { ContentBundle, Module, Task } from "@knight/content";
-import { StatementBuilder, type ActivityDefinition, type Statement } from "@knight/xapi";
+import type { ContentBundle, Module, Task } from "@moonbridge/content";
+import { StatementBuilder, type ActivityDefinition, type Statement } from "@moonbridge/xapi";
 import type { Grade } from "ts-fsrs";
 import { checkAnswer, type CheckOutcome, type Response } from "./check.js";
 import { medianDurations, type Attempt, type AttemptJournal } from "./journal.js";
@@ -83,7 +83,7 @@ export class LearningEngine {
       hintUsed,
       durationMs: i.durationMs,
       ...(median !== undefined ? { medianDurationMs: median } : {}),
-      ...(task.combat?.time_limit_s ? { timeLimitMs: task.combat.time_limit_s * 1000 } : {}),
+      ...(task.time_limit_s ? { timeLimitMs: task.time_limit_s * 1000 } : {}),
     });
     const review = this.d.scheduler.review(task.concept_id, rating, now);
 

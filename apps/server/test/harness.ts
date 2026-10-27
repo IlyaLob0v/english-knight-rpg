@@ -1,6 +1,6 @@
-import { validateContent } from "@knight/content";
-import { buildBundle, loadContentDir } from "@knight/content/node";
-import { MemoryOutboxStore, Outbox, type OutboxStore, type Statement } from "@knight/xapi";
+import { validateContent } from "@moonbridge/content";
+import { buildBundle, loadContentDir } from "@moonbridge/content/node";
+import { MemoryOutboxStore, Outbox, type OutboxStore, type Statement } from "@moonbridge/xapi";
 import type { FastifyInstance } from "fastify";
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type CryptoKey, type JWK } from "jose";
 import { afterEach, beforeAll, expect } from "vitest";
@@ -17,11 +17,11 @@ import { MemoryProgressStore, type ProgressStore } from "../src/progress.js";
 import { MemoryScoreStore, type ScoreStore } from "../src/scores.js";
 import { SessionTokens } from "../src/session.js";
 
-export const CONTENT_DIR = new URL("../../../content", import.meta.url).pathname;
+export const CONTENT_DIR = new URL("../../../packages/content/test/fixtures/content", import.meta.url).pathname;
 
 export const platform: PlatformConfig = {
   issuer: "https://moodle.test",
-  clientId: "knight-client",
+  clientId: "moonbridge-client",
   deploymentIds: ["dep-1"],
   authLoginUrl: "https://moodle.test/mod/lti/auth.php",
   authTokenUrl: "https://moodle.test/mod/lti/token.php",
@@ -67,7 +67,7 @@ export interface HarnessStores {
 }
 
 export async function harness(stores: HarnessStores = {}): Promise<Harness> {
-  const config = loadConfig({ NODE_ENV: "test", ADMIN_TOKEN: "admin-secret", PUBLIC_URL: "https://knight.test", CLIENT_URL: "https://play.knight.test/" });
+  const config = loadConfig({ NODE_ENV: "test", ADMIN_TOKEN: "admin-secret", PUBLIC_URL: "https://moonbridge.test", CLIENT_URL: "https://app.moonbridge.test/" });
   const sent: Statement[] = [];
   const outbox = new Outbox(stores.outboxStore ?? new MemoryOutboxStore(), { send: async (b) => (sent.push(...b), { kind: "sent", ids: b.map((s) => s.id) }) });
   const agsCalls: Harness["agsCalls"] = [];
@@ -104,7 +104,7 @@ export async function idToken(nonce: string, overrides: Record<string, unknown> 
     [CLAIM.messageType]: "LtiResourceLinkRequest",
     [CLAIM.version]: "1.3.0",
     [CLAIM.deploymentId]: "dep-1",
-    [CLAIM.targetLinkUri]: "https://knight.test/lti/launch",
+    [CLAIM.targetLinkUri]: "https://moonbridge.test/lti/launch",
     [CLAIM.resourceLink]: { id: "rl-42" },
     [CLAIM.roles]: ["http://purl.imsglobal.org/vocab/lis/v2/membership#Learner"],
     [CLAIM.context]: { id: "course-7" },
@@ -125,7 +125,7 @@ export async function login(app: FastifyInstance) {
   const res = await app.inject({
     method: "POST",
     url: "/lti/login",
-    payload: new URLSearchParams({ iss: platform.issuer, login_hint: "17", target_link_uri: "https://knight.test/lti/launch", client_id: platform.clientId }).toString(),
+    payload: new URLSearchParams({ iss: platform.issuer, login_hint: "17", target_link_uri: "https://moonbridge.test/lti/launch", client_id: platform.clientId }).toString(),
     headers: { "content-type": "application/x-www-form-urlencoded" },
   });
   expect(res.statusCode).toBe(302);

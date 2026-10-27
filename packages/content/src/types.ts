@@ -16,7 +16,7 @@ export interface Concept {
 }
 
 export interface Module {
-  schema_version: "1.0";
+  schema_version: "2.0";
   module_id: string;
   version: number;
   cefr_level: CefrLevel;
@@ -27,7 +27,7 @@ export interface Module {
   vocabulary_set?: string;
   prerequisites: string[];
   concepts: Concept[];
-  mastery: { boss_task_count: number; pass_score: number };
+  mastery: { check_task_count: number; pass_score: number };
   tasks: string[];
 }
 
@@ -43,7 +43,6 @@ export interface Task {
   type: TaskType;
   difficulty: number;
   presentation: {
-    speaker?: string;
     prompt: string;
     instruction_ru?: string;
     hint?: string;
@@ -56,89 +55,63 @@ export interface Task {
     case_sensitive?: boolean;
     known_errors?: KnownError[];
   };
-  combat?: { damage?: number; time_limit_s?: number };
+  time_limit_s?: number;
   tags?: string[];
 }
 
 export interface TaskSet {
-  schema_version: "1.0";
+  schema_version: "2.0";
   module_id: string;
   tasks: Task[];
 }
 
-export interface TrackStep {
-  module_id: string;
-  quest_id: string;
-  unlocks_building: string;
-  boss?: string;
-  /** story_id shown before the step's first battle. */
-  intro?: string;
-  /** story_id shown after the boss is defeated. */
-  outro?: string;
-  /** Ordinary battles; the boss unlocks after `wins_before_boss` (default 2) victories. */
-  encounters?: { enemies: string[]; wins_before_boss?: number };
-}
-
-export interface Track {
-  schema_version: "1.0";
-  track_id: string;
+/** Unit order of a course. The platform shows units in this order; Moonbridge places follow it. */
+export interface Course {
+  schema_version: "2.0";
+  course_id: string;
   title: Localized;
-  chapters: { chapter_id: string; story_intro?: string; steps: TrackStep[] }[];
+  cefr?: { from: CefrLevel; to: CefrLevel };
+  units: string[];
 }
 
-export interface Building {
-  building_id: string;
+export type Emotion = "neutral" | "happy" | "upset";
+
+export interface Place {
+  place_id: string;
   name: Localized;
-  sprite: string;
-  cost_kp: number;
-  bonus?: { kind: "xp_multiplier" | "hint_charges" | "max_hp" | "kp_multiplier"; value: number };
+  background: string;
+  /** module_id of the unit that opens the place; null = open from the start. */
+  unlocked_by: string | null;
+  characters: string[];
 }
 
-export interface Enemy {
-  enemy_id: string;
-  name: Localized;
-  sprite: string;
-  role: "minion" | "elite" | "boss";
-  hp: number;
-  damage: number;
+export interface Character {
+  character_id: string;
+  name: string;
+  species: Localized;
+  role?: Localized;
+  portraits: { neutral: string } & Partial<Record<Exclude<Emotion, "neutral">, string>>;
 }
 
-export interface StoryLine {
-  speaker?: Localized;
-  text: Localized;
+export type EpisodeStep =
+  | { id: string; kind: "line"; speaker: string; emotion?: Emotion; text: { en: string; ru?: string }; next?: string }
+  | { id: string; kind: "task"; task_id: string; speaker?: string; emotion?: Emotion; on_correct?: string; on_wrong?: string }
+  | { id: string; kind: "end" };
+
+export interface Episode {
+  schema_version: "2.0";
+  episode_id: string;
+  module_id: string;
+  place_id: string;
+  title: Localized;
+  steps: EpisodeStep[];
 }
 
-export interface Story {
-  schema_version: "1.0";
-  story_id: string;
-  lines: StoryLine[];
-}
-
-export interface Reward {
-  xp?: number;
-  kp?: number;
-}
-
-/** Economy and the daily loop: XP, levels, KP, patrol and repair. One file, world/progression.json. */
-export interface Progression {
-  schema_version: "1.0";
-  knight: { base_hp: number; hints_per_battle: number };
-  /** xp_to_reach[i] is the total XP needed for level i + 1. */
-  levels: { xp_to_reach: number[]; hp_per_level: number };
-  rewards: {
-    /** Per correct answer, multiplied by the task difficulty. */
-    answer_correct: Reward;
-    answer_typo?: Reward;
-    encounter_won: Reward;
-    /** Only the first time a module's boss falls. */
-    boss_passed: Reward;
-    /** Once per day. */
-    patrol_completed: Reward;
-    building_repaired: Reward;
-  };
-  patrol: { size: number; task_cooldown_days: number; enemies: string[] };
-  /** A building needs repair when a studied concept of its module drops below `threshold` recall probability. */
-  repair: { threshold: number; task_count: number };
+/** The Moonbridge section's content. The platform works without it. */
+export interface MoonbridgeContent {
+  places: Place[];
+  characters: Character[];
+  episodes: Episode[];
 }
 
 export interface ErrorType {
@@ -164,27 +137,22 @@ export interface ContentSource {
   taxonomy: SourceFile[];
   modules: SourceFile[];
   taskSets: SourceFile[];
-  tracks: SourceFile[];
-  buildings: SourceFile[];
-  enemies: SourceFile[];
-  /** Optional so that older uploads without stories still validate. */
-  stories?: SourceFile[];
-  /** At most one file; the game falls back to built-in defaults without it. */
-  progression?: SourceFile[];
+  courses: SourceFile[];
+  /** Moonbridge files are optional: without them the platform runs with no Moonbridge section. */
+  places?: SourceFile[];
+  characters?: SourceFile[];
+  episodes?: SourceFile[];
 }
 
-/** Validated content, flattened and indexed: this is what the game and the engine consume. */
+/** Validated content, flattened and indexed: this is what the platform, Moonbridge and the engine consume. */
 export interface ContentBundle {
-  bundle_schema_version: "1.0";
+  bundle_schema_version: "2.0";
   /** Content hash: changes whenever any content changes, stable otherwise. */
   content_hash: string;
   built_at: string;
   taxonomy: ErrorTaxonomy;
   modules: Module[];
   tasks: Record<string, Task & { module_id: string }>;
-  tracks: Track[];
-  buildings: Building[];
-  enemies: Enemy[];
-  stories: Story[];
-  progression?: Progression;
+  courses: Course[];
+  moonbridge?: MoonbridgeContent;
 }

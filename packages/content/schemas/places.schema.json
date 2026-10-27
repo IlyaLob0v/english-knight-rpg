@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moonbridge.example.com/schemas/places.schema.json",
+  "title": "Moonbridge places",
+  "description": "The hotel and town map. A place opens when the student reaches the unit that unlocks it, so the map follows the course order.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "places"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": "2.0" },
+    "places": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["place_id", "name", "background", "unlocked_by", "characters"],
+        "properties": {
+          "place_id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+          "name": { "$ref": "#/$defs/localized" },
+          "background": { "type": "string", "pattern": "^[a-z0-9_/.-]+$", "description": "Art path relative to the art folder; a placeholder until the illustrator delivers." },
+          "unlocked_by": {
+            "type": ["string", "null"],
+            "pattern": "^(A1|A2|B1|B2|C1|C2)_[A-Za-z0-9]+_[0-9]{2}$",
+            "description": "module_id of the unit that opens the place; null = open from the start."
+          },
+          "characters": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9_]+$" } }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "localized": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["en", "ru"],
+      "properties": { "en": { "type": "string", "minLength": 1 }, "ru": { "type": "string", "minLength": 1 } }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "../../../../schemas/course.schema.json",
+  "schema_version": "2.0",
+  "course_id": "fixture_a1",
+  "title": {
+    "en": "Fixture course",
+    "ru": "Тестовый курс"
+  },
+  "cefr": {
+    "from": "A1",
+    "to": "A1"
+  },
+  "units": [
+    "A1_VerbToBe_01",
+    "A1_PastSimple_01",
+    "A1_Articles_01"
+  ]
+}

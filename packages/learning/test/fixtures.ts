@@ -1,7 +1,7 @@
-import { validateContent, type ContentBundle } from "@knight/content";
-import { buildBundle, loadContentDir } from "@knight/content/node";
+import { validateContent, type ContentBundle } from "@moonbridge/content";
+import { buildBundle, loadContentDir } from "@moonbridge/content/node";
 
-const CONTENT_DIR = new URL("../../../content", import.meta.url).pathname;
+const CONTENT_DIR = new URL("../../content/test/fixtures/content", import.meta.url).pathname;
 
 export async function loadBundle(): Promise<ContentBundle> {
   const { source } = await loadContentDir(CONTENT_DIR);

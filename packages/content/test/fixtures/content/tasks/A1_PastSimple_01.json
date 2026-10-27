@@ -1,0 +1,440 @@
+{
+  "$schema": "../../../../schemas/task-set.schema.json",
+  "schema_version": "2.0",
+  "module_id": "A1_PastSimple_01",
+  "tasks": [
+    {
+      "task_id": "A1_PastSimple_01_q1",
+      "concept_id": "past_simple.regular_ed",
+      "type": "gap_fill",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "Last night the knight ___ (walk) to the forge."
+      },
+      "answer": {
+        "accepted": [
+          "walked"
+        ],
+        "known_errors": [
+          {
+            "match": [
+              "walk",
+              "walks"
+            ],
+            "error_type": "grammar.tense_not_changed",
+            "feedback": "Last night — прошлое: walk + ed"
+          },
+          {
+            "match": [
+              "walkt"
+            ],
+            "error_type": "spelling.typo"
+          }
+        ]
+      },
+      "time_limit_s": 25
+    },
+    {
+      "task_id": "A1_PastSimple_01_q2",
+      "concept_id": "past_simple.regular_ed",
+      "type": "gap_fill",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "The blacksmith ___ (stop) the fire with water.",
+        "hint": "Короткий слог на согласную: последняя буква удваивается"
+      },
+      "answer": {
+        "accepted": [
+          "stopped"
+        ],
+        "known_errors": [
+          {
+            "match": [
+              "stoped"
+            ],
+            "error_type": "spelling.double_letter",
+            "feedback": "Короткий глагол на согласную: stop → stopped"
+          },
+          {
+            "match": [
+              "stop",
+              "stops"
+            ],
+            "error_type": "grammar.tense_not_changed"
+          }
+        ]
+      },
+      "time_limit_s": 25
+    },
+    {
+      "task_id": "A1_PastSimple_01_q3",
+      "concept_id": "past_simple.irregular",
+      "type": "gap_fill",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Yesterday the dragon ___ (go) to the mountains.",
+        "hint": "«go» — неправильный глагол: go → ? → gone"
+      },
+      "answer": {
+        "accepted": [
+          "went"
+        ],
+        "known_errors": [
+          {
+            "match": [
+              "goed"
+            ],
+            "error_type": "grammar.overgeneralization",
+            "feedback": "В Past Simple «go» неправильный: went"
+          },
+          {
+            "match": [
+              "gone"
+            ],
+            "error_type": "grammar.wrong_form_v3",
+            "feedback": "gone — это третья форма, нужна вторая"
+          },
+          {
+            "match": [
+              "go",
+              "goes"
+            ],
+            "error_type": "grammar.tense_not_changed"
+          }
+        ]
+      },
+      "tags": [
+        "dragon",
+        "irregular_top50"
+      ],
+      "time_limit_s": 25
+    },
+    {
+      "task_id": "A1_PastSimple_01_q4",
+      "concept_id": "past_simple.irregular",
+      "type": "gap_fill",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "The knight ___ (see) smoke above the forge."
+      },
+      "answer": {
+        "accepted": [
+          "saw"
+        ],
+        "known_errors": [
+          {
+            "match": [
+              "seed",
+              "seen"
+            ],
+            "error_type": "grammar.overgeneralization",
+            "feedback": "see → saw → seen"
+          },
+          {
+            "match": [
+              "see",
+              "sees"
+            ],
+            "error_type": "grammar.tense_not_changed"
+          }
+        ]
+      },
+      "tags": [
+        "irregular_top50"
+      ],
+      "time_limit_s": 25
+    },
+    {
+      "task_id": "A1_PastSimple_01_q5",
+      "concept_id": "past_simple.irregular",
+      "type": "choice",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "The imps ___ all the coal last week.",
+        "options": [
+          {
+            "id": "a",
+            "text": "eated"
+          },
+          {
+            "id": "b",
+            "text": "ate"
+          },
+          {
+            "id": "c",
+            "text": "eaten"
+          },
+          {
+            "id": "d",
+            "text": "eat"
+          }
+        ]
+      },
+      "answer": {
+        "accepted": [
+          "b"
+        ],
+        "known_errors": [
+          {
+            "match": [
+              "a"
+            ],
+            "error_type": "grammar.overgeneralization",
+            "feedback": "eat — неправильный: ate"
+          },
+          {
+            "match": [
+              "c"
+            ],
+            "error_type": "grammar.wrong_form_v3",
+            "feedback": "eaten — третья форма"
+          },
+          {
+            "match": [
+              "d"
+            ],
+            "error_type": "grammar.tense_not_changed"
+          }
+        ]
+      },
+      "tags": [
+        "irregular_top50"
+      ],
+      "time_limit_s": 25
+    },
+    {
+      "task_id": "A1_PastSimple_01_q6",
+      "concept_id": "past_simple.did_not",
+      "type": "gap_fill",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "The golem ___ (not / sleep) last night.",
+        "hint": "didn't + первая форма"
+      },
+      "answer": {
+        "accepted": [
+          "didn't sleep",
+          "did not sleep"
+        ],
+        "known_errors": [
+          {
+            "match": [
+              "didn't slept",
+              "did not slept"
+            ],
+            "error_type": "grammar.double_past",
+            "feedback": "После didn't — первая форма: didn't sleep"
+          },
+          {
+            "match": [
+              "not slept",
+              "slept not"
+            ],
+            "error_type": "grammar.auxiliary",
+            "feedback": "Отрицание в прошлом: didn't + V1"
+          },
+          {
+            "match": [
+              "doesn't sleep",
+              "don't sleep"
+            ],
+            "error_type": "grammar.tense_not_changed",
+            "feedback": "Last night — прошлое: didn't"
+          }
+        ]
+      },
+      "time_limit_s": 25
+    },
+    {
+      "task_id": "A1_PastSimple_01_q7",
+      "concept_id": "past_simple.did_not",
+      "type": "transform",
+      "difficulty": 3,
+      "presentation": {
+        "prompt": "Make the sentence negative.",
+        "source": "The blacksmith found his hammer."
+      },
+      "answer": {
+        "accepted": [
+          "The blacksmith didn't find his hammer.",
+          "The blacksmith did not find his hammer."
+        ],
+        "known_errors": [
+          {
+            "match": [
+              "The blacksmith didn't found his hammer.",
+              "The blacksmith did not found his hammer."
+            ],
+            "error_type": "grammar.double_past",
+            "feedback": "После didn't — первая форма: find"
+          },
+          {
+            "match": [
+              "The blacksmith not found his hammer."
+            ],
+            "error_type": "grammar.auxiliary",
+            "feedback": "Нужен didn't"
+          }
+        ]
+      },
+      "time_limit_s": 40
+    },
+    {
+      "task_id": "A1_PastSimple_01_q8",
+      "concept_id": "past_simple.regular_ed",
+      "type": "transform",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Change to Past Simple.",
+        "source": "The knights play dice every evening."
+      },
+      "answer": {
+        "accepted": [
+          "The knights played dice every evening."
+        ],
+        "known_errors": [
+          {
+            "match": [
+              "The knights plaied dice every evening."
+            ],
+            "error_type": "spelling.typo",
+            "feedback": "play → played: y после гласной не меняется"
+          }
+        ]
+      },
+      "time_limit_s": 40
+    },
+    {
+      "task_id": "A1_PastSimple_01_q9",
+      "concept_id": "past_simple.irregular",
+      "type": "order_words",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Build the blacksmith's story.",
+        "tokens": [
+          "the",
+          "I",
+          "sword",
+          "made",
+          "yesterday"
+        ]
+      },
+      "answer": {
+        "accepted": [
+          "I made the sword yesterday",
+          "Yesterday I made the sword"
+        ]
+      },
+      "time_limit_s": 40
+    },
+    {
+      "task_id": "A1_PastSimple_01_q10",
+      "concept_id": "past_simple.did_not",
+      "type": "order_words",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Put the words in order.",
+        "tokens": [
+          "didn't",
+          "the",
+          "come",
+          "dragon",
+          "back"
+        ]
+      },
+      "answer": {
+        "accepted": [
+          "the dragon didn't come back"
+        ],
+        "known_errors": [
+          {
+            "match": [
+              "the dragon come didn't back"
+            ],
+            "error_type": "grammar.word_order",
+            "feedback": "didn't стоит перед глаголом"
+          }
+        ]
+      },
+      "time_limit_s": 40
+    },
+    {
+      "task_id": "A1_PastSimple_01_q11",
+      "concept_id": "past_simple.regular_ed",
+      "type": "choice",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "The villagers ___ the knight for help.",
+        "options": [
+          {
+            "id": "a",
+            "text": "thanked"
+          },
+          {
+            "id": "b",
+            "text": "thank"
+          },
+          {
+            "id": "c",
+            "text": "thankd"
+          }
+        ]
+      },
+      "answer": {
+        "accepted": [
+          "a"
+        ],
+        "known_errors": [
+          {
+            "match": [
+              "b"
+            ],
+            "error_type": "grammar.tense_not_changed"
+          },
+          {
+            "match": [
+              "c"
+            ],
+            "error_type": "spelling.typo"
+          }
+        ]
+      },
+      "time_limit_s": 25
+    },
+    {
+      "task_id": "A1_PastSimple_01_q12",
+      "concept_id": "past_simple.irregular",
+      "type": "gap_fill",
+      "difficulty": 3,
+      "presentation": {
+        "prompt": "The fire ___ (begin) at midnight."
+      },
+      "answer": {
+        "accepted": [
+          "began"
+        ],
+        "known_errors": [
+          {
+            "match": [
+              "begined",
+              "beginned"
+            ],
+            "error_type": "grammar.overgeneralization",
+            "feedback": "begin → began → begun"
+          },
+          {
+            "match": [
+              "begun"
+            ],
+            "error_type": "grammar.wrong_form_v3",
+            "feedback": "begun — третья форма"
+          }
+        ]
+      },
+      "tags": [
+        "irregular_top50"
+      ],
+      "time_limit_s": 25
+    }
+  ]
+}

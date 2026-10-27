@@ -24,7 +24,7 @@ export interface Session {
  */
 export class SessionTokens {
   private readonly key: Uint8Array;
-  constructor(secret: string, private readonly ttlSeconds: number, private readonly issuer = "knight-of-words") {
+  constructor(secret: string, private readonly ttlSeconds: number, private readonly issuer = "moonbridge") {
     this.key = new TextEncoder().encode(secret);
   }
 

@@ -1,0 +1,7 @@
+{
+  "schema_version": "2.0",
+  "places": [
+    { "place_id": "reception", "name": { "en": "Reception", "ru": "Ресепшен" }, "background": "places/reception.webp", "unlocked_by": null, "characters": ["rocco"] },
+    { "place_id": "cafe", "name": { "en": "Night Café", "ru": "Night Café" }, "background": "places/cafe.webp", "unlocked_by": "A1_PastSimple_01", "characters": ["pip"] }
+  ]
+}

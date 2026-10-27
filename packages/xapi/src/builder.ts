@@ -1,4 +1,4 @@
-import { ACTIVITY_TYPES, KnightProfile } from "./profile.js";
+import { ACTIVITY_TYPES, XapiProfile } from "./profile.js";
 import type { Activity, ActivityDefinition, Context, Statement } from "./types.js";
 
 /** ISO 8601 duration with centisecond precision, as recommended by xAPI 1.0.3. */
@@ -46,15 +46,15 @@ export interface ModuleResultInput extends Common {
   scoreRaw: number;
   scoreMax: number;
   durationMs?: number;
-  trackId?: string;
+  courseId?: string;
 }
 
 /**
- * Builds xAPI statements for the knight-v1 profile. Pure: no I/O, no clock unless
+ * Builds xAPI statements for the moonbridge-v1 profile. Pure: no I/O, no clock unless
  * no timestamp is passed. The same builder runs in the browser and on the server.
  */
 export class StatementBuilder {
-  constructor(readonly profile: KnightProfile = new KnightProfile()) {}
+  constructor(readonly profile: XapiProfile = new XapiProfile()) {}
 
   answered(i: AnsweredInput): Statement {
     const p = this.profile;
@@ -90,7 +90,7 @@ export class StatementBuilder {
       objectType: "Activity",
       id: p.module(i.moduleId),
       definition: { type: ACTIVITY_TYPES.module },
-    }, i.trackId ? { parent: [{ id: p.track(i.trackId) }] } : {}, {
+    }, i.courseId ? { parent: [{ id: p.course(i.courseId) }] } : {}, {
       success: i.verb === "passed" ? true : i.verb === "failed" ? false : undefined,
       completion: true,
       score: { raw: i.scoreRaw, min: 0, max: i.scoreMax, scaled: i.scoreMax > 0 ? round4(i.scoreRaw / i.scoreMax) : 0 },
@@ -105,34 +105,23 @@ export class StatementBuilder {
       { extensions: { [p.ext("retrievability")]: round4(i.retrievability) } });
   }
 
-  launched(i: Common & { trackId: string }): Statement {
+  launched(i: Common & { courseId: string }): Statement {
     return this.base(i, "launched", {
       objectType: "Activity",
-      id: this.profile.track(i.trackId),
+      id: this.profile.course(i.courseId),
       definition: { type: ACTIVITY_TYPES.course },
     }, {});
   }
 
-  built(i: Common & { buildingId: string; moduleId: string }): Statement {
+  /** A Moonbridge place opened for the student: they reached the unit that unlocks it. */
+  unlocked(i: Common & { placeId: string; moduleId: string }): Statement {
     const p = this.profile;
-    return this.base(i, "built", { objectType: "Activity", id: p.building(i.buildingId) }, { parent: [{ id: p.module(i.moduleId) }] });
-  }
-
-  /** A damaged building is whole again: the concepts of its module were repeated above the repair threshold. */
-  repaired(i: Common & { buildingId: string; moduleId: string }): Statement {
-    const p = this.profile;
-    return this.base(i, "repaired", { objectType: "Activity", id: p.building(i.buildingId) }, { parent: [{ id: p.module(i.moduleId) }] });
-  }
-
-  defeated(i: Common & { enemyId: string; moduleId?: string }): Statement {
-    const p = this.profile;
-    return this.base(i, "defeated", { objectType: "Activity", id: p.enemy(i.enemyId) },
-      i.moduleId ? { parent: [{ id: p.module(i.moduleId) }] } : {});
+    return this.base(i, "unlocked", { objectType: "Activity", id: p.place(i.placeId) }, { parent: [{ id: p.module(i.moduleId) }] });
   }
 
   private base(
     c: Common,
-    verb: Parameters<KnightProfile["verb"]>[0],
+    verb: Parameters<XapiProfile["verb"]>[0],
     object: Activity,
     contextActivities: NonNullable<Context["contextActivities"]>,
     result?: Statement["result"],
@@ -145,7 +134,7 @@ export class StatementBuilder {
     const context: Context = {
       ...(c.registration ? { registration: c.registration } : {}),
       contextActivities: { ...contextActivities, category: [{ id: p.id }] },
-      platform: "knight-of-words",
+      platform: "moonbridge",
       ...(Object.keys(ctxExt).length ? { extensions: ctxExt } : {}),
     };
     const statement: Statement = {

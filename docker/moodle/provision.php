@@ -6,7 +6,7 @@
 // Prints the gateway's LTI_PLATFORMS JSON on stdout; progress goes to stderr.
 //
 // Run inside the moodle container (docker/setup.sh does this):
-//   KNIGHT_MODULES='[{"id":"A1_VerbToBe_01","title":"..."}]' php /provision/provision.php
+//   MOONBRIDGE_MODULES='[{"id":"A1_VerbToBe_01","title":"..."}]' php /provision/provision.php
 
 define('CLI_SCRIPT', true);
 require('/var/www/html/config.php');
@@ -19,13 +19,13 @@ function say(string $message): void {
     fwrite(STDERR, "[provision] $message\n");
 }
 
-$toolurl = rtrim(getenv('KNIGHT_TOOL_URL') ?: 'http://localhost:8787', '/');
+$toolurl = rtrim(getenv('MOONBRIDGE_TOOL_URL') ?: 'http://localhost:8787', '/');
 // Fetched by Moodle itself (server side), so it names the Docker host, not localhost.
-$jwksurl = getenv('KNIGHT_TOOL_JWKS_URL') ?: 'http://host.docker.internal:8787/.well-known/jwks.json';
-$clientid = getenv('KNIGHT_CLIENT_ID') ?: 'knight-of-words-dev';
-$modules = json_decode(getenv('KNIGHT_MODULES') ?: '[]', true);
-$studentpass = getenv('KNIGHT_STUDENT_PASSWORD') ?: 'Knight-Student-1';
-$teacherpass = getenv('KNIGHT_TEACHER_PASSWORD') ?: 'Knight-Teacher-1';
+$jwksurl = getenv('MOONBRIDGE_TOOL_JWKS_URL') ?: 'http://host.docker.internal:8787/.well-known/jwks.json';
+$clientid = getenv('MOONBRIDGE_CLIENT_ID') ?: 'moonbridge-dev';
+$modules = json_decode(getenv('MOONBRIDGE_MODULES') ?: '[]', true);
+$studentpass = getenv('MOONBRIDGE_STUDENT_PASSWORD') ?: 'Moonbridge-Student-1';
+$teacherpass = getenv('MOONBRIDGE_TEACHER_PASSWORD') ?: 'Moonbridge-Teacher-1';
 
 \core\session\manager::set_user(get_admin());
 
@@ -45,8 +45,8 @@ $config->lti_keytype = LTI_JWK_KEYSET;
 $config->lti_publickeyset = $jwksurl;
 $config->lti_ltiversion = LTI_VERSION_1P3;
 $config->lti_clientid = $clientid;
-$config->lti_typename = 'Knight of Words';
-$config->lti_description = 'English-learning knight RPG (local gateway)';
+$config->lti_typename = 'Moonbridge';
+$config->lti_description = 'Moonbridge school platform (local gateway)';
 $config->lti_coursevisible = LTI_COURSEVISIBLE_ACTIVITYCHOOSER;
 $config->lti_launchcontainer = LTI_LAUNCH_CONTAINER_EMBED_NO_BLOCKS;
 // The game needs no names or emails: xAPI uses a pseudonymous account.
@@ -77,7 +77,7 @@ if ($type) {
 $course = $DB->get_record('course', ['shortname' => 'KNIGHT']);
 if (!$course) {
     $course = create_course((object) [
-        'fullname' => 'Knight of Words (test course)',
+        'fullname' => 'Moonbridge (test course)',
         'shortname' => 'KNIGHT',
         'category' => core_course_category::get_default()->id,
         'format' => 'topics',
@@ -113,13 +113,13 @@ $roles = [
 enrol_try_internal_enrol($course->id, ensure_user('student', 'Sam', 'Student', $studentpass)->id, $roles['student']);
 enrol_try_internal_enrol($course->id, ensure_user('teacher', 'Tess', 'Teacher', $teacherpass)->id, $roles['editingteacher']);
 // A throwaway student per end-to-end run (e2e/lms.e2e.ts), so every run starts from an empty gradebook.
-if ($e2e = getenv('KNIGHT_E2E_STUDENT')) {
-    enrol_try_internal_enrol($course->id, ensure_user($e2e, 'E2E', $e2e, getenv('KNIGHT_E2E_PASSWORD') ?: $studentpass)->id, $roles['student']);
+if ($e2e = getenv('MOONBRIDGE_E2E_STUDENT')) {
+    enrol_try_internal_enrol($course->id, ensure_user($e2e, 'E2E', $e2e, getenv('MOONBRIDGE_E2E_PASSWORD') ?: $studentpass)->id, $roles['student']);
 }
 
 // ---------- One activity per module
 foreach ($modules as $m) {
-    $name = "Knight of Words: {$m['title']}";
+    $name = "Moonbridge: {$m['title']}";
     if ($DB->record_exists('lti', ['course' => $course->id, 'name' => $name])) {
         continue;
     }
@@ -151,7 +151,7 @@ foreach ($modules as $m) {
 // The activity's gradebook column answers to resource_id = module id, so a result for this
 // module lands in it even when the game was opened from another module's activity.
 foreach ($modules as $m) {
-    $ltiid = $DB->get_field('lti', 'id', ['course' => $course->id, 'name' => "Knight of Words: {$m['title']}"]);
+    $ltiid = $DB->get_field('lti', 'id', ['course' => $course->id, 'name' => "Moonbridge: {$m['title']}"]);
     if ($ltiid) {
         $DB->set_field('ltiservice_gradebookservices', 'resourceid', $m['id'], ['ltilinkid' => $ltiid, 'courseid' => $course->id]);
     }

@@ -1,5 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
-import { StatementBuilder } from "@knight/xapi";
+import { StatementBuilder } from "@moonbridge/xapi";
 import { decodeJwt } from "jose";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { migrate, type Sql } from "../src/db/sql.js";
@@ -98,7 +98,7 @@ describe("Postgres stores", () => {
   it("deduplicates xAPI statements by id, also after they were sent", async () => {
     const outbox = new PgOutboxStore(sql);
     const b = new StatementBuilder();
-    const [a, c] = [b.defeated({ playerId: "p1", enemyId: "ash_imp" }), b.defeated({ playerId: "p1", enemyId: "ash_imp" })];
+    const [a, c] = [b.unlocked({ playerId: "p1", placeId: "reception", moduleId: "A1_VerbToBe_01" }), b.unlocked({ playerId: "p1", placeId: "reception", moduleId: "A1_VerbToBe_01" })];
     expect(await outbox.enqueue([a, c], 1000)).toBe(2);
     expect(await outbox.enqueue([a], 1000)).toBe(0);
     expect((await outbox.due(1000, 10)).map((e) => e.statement.id)).toEqual([a.id, c.id]);

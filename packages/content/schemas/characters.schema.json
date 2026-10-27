@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moonbridge.example.com/schemas/characters.schema.json",
+  "title": "Moonbridge characters",
+  "description": "Residents of Moonbridge. Each has a portrait per emotion; an episode line may only use an emotion the character has art for.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "characters"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": "2.0" },
+    "characters": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["character_id", "name", "species", "portraits"],
+        "properties": {
+          "character_id": { "type": "string", "pattern": "^[a-z0-9_]+$", "not": { "enum": ["narrator", "player"] } },
+          "name": { "type": "string", "minLength": 1 },
+          "species": { "$ref": "#/$defs/localized" },
+          "role": { "$ref": "#/$defs/localized" },
+          "portraits": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["neutral"],
+            "properties": {
+              "neutral": { "$ref": "#/$defs/art" },
+              "happy": { "$ref": "#/$defs/art" },
+              "upset": { "$ref": "#/$defs/art" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "art": { "type": "string", "pattern": "^[a-z0-9_/.-]+$" },
+    "localized": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["en", "ru"],
+      "properties": { "en": { "type": "string", "minLength": 1 }, "ru": { "type": "string", "minLength": 1 } }
+    }
+  }
+}

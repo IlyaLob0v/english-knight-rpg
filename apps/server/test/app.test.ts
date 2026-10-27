@@ -1,5 +1,5 @@
-import { loadContentDir } from "@knight/content/node";
-import { StatementBuilder } from "@knight/xapi";
+import { loadContentDir } from "@moonbridge/content/node";
+import { StatementBuilder } from "@moonbridge/xapi";
 import { decodeJwt, generateKeyPair, SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
 import { appendPath } from "../src/lti/ags.js";
@@ -17,7 +17,7 @@ describe("LTI 1.3 launch", () => {
       response_mode: "form_post",
       prompt: "none",
       client_id: platform.clientId,
-      redirect_uri: "https://knight.test/lti/launch",
+      redirect_uri: "https://moonbridge.test/lti/launch",
       login_hint: "17",
     });
   });
@@ -131,7 +131,7 @@ describe("module result → AGS", () => {
     expect(forged.player_id).toMatch(/^guest_[0-9a-f]{8}$/);
 
     const me = await app.inject({ url: "/session/me", headers: { authorization: `Bearer ${again.token}` } });
-    expect(me.json()).toEqual({ player_id: first.player_id, registration: again.registration, xapi_base_iri: "https://knight.example.com", lti: null });
+    expect(me.json()).toEqual({ player_id: first.player_id, registration: again.registration, xapi_base_iri: "https://moonbridge.example.com", lti: null });
     expect((await app.inject({ url: "/session/me" })).statusCode).toBe(401);
   });
 
@@ -165,7 +165,7 @@ describe("xAPI intake", () => {
   it("accepts the session player's statements and forwards them to the LRS once", async () => {
     const { app, sent, outbox } = await harness();
     const { token, player_id } = (await app.inject({ method: "POST", url: "/session/guest" })).json();
-    const st = new StatementBuilder().defeated({ playerId: player_id, enemyId: "ash_imp" });
+    const st = new StatementBuilder().unlocked({ playerId: player_id, placeId: "reception", moduleId: "A1_VerbToBe_01" });
     const post = () => app.inject({ method: "POST", url: "/xapi/statements", headers: { authorization: `Bearer ${token}` }, payload: [st] });
     expect((await post()).statusCode).toBe(202);
     expect((await post()).json()).toMatchObject({ accepted: 1, new: 0 });
@@ -176,7 +176,7 @@ describe("xAPI intake", () => {
   it("rejects statements about another player and requests without a session", async () => {
     const { app } = await harness();
     const { token } = (await app.inject({ method: "POST", url: "/session/guest" })).json();
-    const st = new StatementBuilder().defeated({ playerId: "someone_else", enemyId: "ash_imp" });
+    const st = new StatementBuilder().unlocked({ playerId: "someone_else", placeId: "reception", moduleId: "A1_VerbToBe_01" });
     const res = await app.inject({ method: "POST", url: "/xapi/statements", headers: { authorization: `Bearer ${token}` }, payload: [st] });
     expect(res.statusCode).toBe(400);
     expect(res.json().rejected[0].errors).toEqual(["actor does not match the session"]);
@@ -209,8 +209,9 @@ describe("Content API", () => {
     expect((await app.inject({ url: "/content/manifest" })).json().content_hash).toBe(bundle.content_hash);
 
     const changed = structuredClone(source);
-    const steps = (changed.tracks[0]!.data as any).chapters[0].steps;
-    [steps[1], steps[2]] = [steps[2], steps[1]];
+    // A content change the platform accepts: a new episode line.
+    const episode = changed.episodes!.find((e) => (e.data as any).episode_id === "to_be_at_reception")!;
+    (episode.data as any).steps[0].text.ru = "Добро пожаловать!";
     const ok = await put(changed);
     expect(ok.statusCode).toBe(200);
     expect(ok.json().content_hash).not.toBe(bundle.content_hash);

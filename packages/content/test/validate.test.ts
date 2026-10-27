@@ -3,137 +3,195 @@ import { findCycles, normalizeAnswer, validateContent, type ContentSource } from
 import { buildBundle, loadContentDir } from "../src/node.js";
 
 const CONTENT_DIR = new URL("../../../content", import.meta.url).pathname;
+/** A frozen copy of three A1 units with Moonbridge places and episodes: the tests do not depend on the live course. */
+export const FIXTURE_DIR = new URL("./fixtures/content", import.meta.url).pathname;
 
-async function realSource(): Promise<ContentSource> {
-  const { source, parseErrors } = await loadContentDir(CONTENT_DIR);
+async function load(dir: string): Promise<ContentSource> {
+  const { source, parseErrors } = await loadContentDir(dir);
   expect(parseErrors).toEqual([]);
   return structuredClone(source);
 }
+const fixture = () => load(FIXTURE_DIR);
 
 const codes = (src: ContentSource) => validateContent(src).issues.filter((i) => i.severity === "error").map((i) => i.code);
+const episode = (src: ContentSource, id: string) => src.episodes!.find((e) => (e.data as any).episode_id === id)!.data as any;
 
 describe("the content in /content", () => {
   it("is valid", async () => {
-    const result = validateContent(await realSource());
+    const result = validateContent(await load(CONTENT_DIR));
     expect(result.issues.filter((i) => i.severity === "error")).toEqual([]);
     expect(result.ok).toBe(true);
   });
 
-  it("has every task type in every module", async () => {
-    const result = validateContent(await realSource());
+  it("has a course, and Moonbridge for it", async () => {
+    const bundle = buildBundle(validateContent(await load(CONTENT_DIR)).content!);
+    expect(bundle.courses.length).toBeGreaterThan(0);
+    expect(bundle.moonbridge?.episodes.length).toBeGreaterThan(0);
+  });
+});
+
+describe("the fixture content", () => {
+  it("has every task type in every unit", async () => {
+    const result = validateContent(await fixture());
     for (const set of result.content!.taskSets) {
       expect(new Set(set.tasks.map((t) => t.type))).toEqual(new Set(["choice", "gap_fill", "transform", "order_words"]));
     }
   });
 
   it("builds a bundle whose hash depends on content only", async () => {
-    const content = validateContent(await realSource()).content!;
+    const content = validateContent(await fixture()).content!;
     const a = buildBundle(content, new Date("2026-01-01"));
     const b = buildBundle(content, new Date("2026-06-01"));
     expect(a.content_hash).toBe(b.content_hash);
     expect(Object.keys(a.tasks).length).toBeGreaterThanOrEqual(36);
     expect(a.tasks["A1_PastSimple_01_q3"]?.module_id).toBe("A1_PastSimple_01");
+    expect(a.moonbridge?.episodes.map((e) => e.episode_id)).toEqual(["articles_in_cafe", "to_be_at_reception"]);
+  });
+
+  it("works as a platform without Moonbridge", async () => {
+    const src = await fixture();
+    delete src.places;
+    delete src.characters;
+    delete src.episodes;
+    const result = validateContent(src);
+    expect(result.ok).toBe(true);
+    expect(buildBundle(result.content!).moonbridge).toBeUndefined();
   });
 });
 
 describe("validator catches", () => {
-  it("a task pointing at a concept its module does not define", async () => {
-    const src = await realSource();
+  it("a task pointing at a concept its unit does not define", async () => {
+    const src = await fixture();
     (src.taskSets[0]!.data as any).tasks[0].concept_id = "nope.missing";
     expect(codes(src)).toContain("ref.concept");
   });
 
   it("a prerequisite cycle", async () => {
-    const src = await realSource();
+    const src = await fixture();
     const verbToBe = src.modules.find((m) => (m.data as any).module_id === "A1_VerbToBe_01")!;
     (verbToBe.data as any).prerequisites = ["A1_PastSimple_01"];
     expect(codes(src)).toContain("cycle.prerequisites");
   });
 
   it("a duplicate task id", async () => {
-    const src = await realSource();
+    const src = await fixture();
     const tasks = (src.taskSets[0]!.data as any).tasks;
     tasks.push(structuredClone(tasks[0]));
     expect(codes(src)).toContain("duplicate.task_id");
   });
 
-  it("a track that puts a module before its prerequisite", async () => {
-    const src = await realSource();
-    const steps = (src.tracks[0]!.data as any).chapters[0].steps;
-    steps.reverse();
+  it("a course that puts a unit before its prerequisite", async () => {
+    const src = await fixture();
+    (src.courses[0]!.data as any).units.reverse();
     expect(codes(src)).toContain("order.prerequisites");
   });
 
-  it("a track reordering that respects prerequisites is fine", async () => {
-    const src = await realSource();
-    const steps = (src.tracks[0]!.data as any).chapters[0].steps;
-    // VerbToBe, PastSimple, Articles → VerbToBe, Articles, PastSimple
-    [steps[1], steps[2]] = [steps[2], steps[1]];
-    expect(codes(src)).toEqual([]);
+  it("a unit check larger than the task pool", async () => {
+    const src = await fixture();
+    (src.modules[0]!.data as any).mastery.check_task_count = 999;
+    expect(codes(src)).toContain("mastery.pool");
   });
 
   it("an unknown error type in known_errors", async () => {
-    const src = await realSource();
+    const src = await fixture();
     const task = (src.taskSets[0]!.data as any).tasks.find((t: any) => t.answer.known_errors?.length);
     task.answer.known_errors[0].error_type = "grammar.made_up";
     expect(codes(src)).toContain("ref.error_type");
   });
 
   it("an answer that is both accepted and a known error", async () => {
-    const src = await realSource();
+    const src = await fixture();
     const task = (src.taskSets[0]!.data as any).tasks.find((t: any) => t.type === "gap_fill" && t.answer.known_errors?.length);
     task.answer.known_errors[0].match.push(task.answer.accepted[0].toUpperCase());
     expect(codes(src)).toContain("answer.conflict");
   });
 
   it("an order_words answer that cannot be built from its tokens", async () => {
-    const src = await realSource();
+    const src = await fixture();
     const task = (src.taskSets[0]!.data as any).tasks.find((t: any) => t.type === "order_words");
     task.answer.accepted = ["Something else entirely"];
     expect(codes(src)).toContain("answer.tokens");
   });
 
   it("schema violations, with the offending field", async () => {
-    const src = await realSource();
+    const src = await fixture();
     (src.modules[0]!.data as any).cefr_level = "Z9";
     (src.modules[0]!.data as any).surprise = true;
     const issues = validateContent(src).issues;
     expect(issues.some((i) => i.code === "schema" && i.message.includes("cefr_level"))).toBe(true);
     expect(issues.some((i) => i.code === "schema" && i.message.includes("surprise"))).toBe(true);
   });
+});
 
-  it("a boss that is not a boss", async () => {
-    const src = await realSource();
-    (src.tracks[0]!.data as any).chapters[0].steps[0].boss = "gate_rat";
-    expect(codes(src)).toContain("ref.enemy");
+describe("Moonbridge checks", () => {
+  it("a course reordering that respects prerequisites is fine, and places follow it", async () => {
+    const src = await fixture();
+    // VerbToBe, PastSimple, Articles → VerbToBe, Articles, PastSimple: the café (opened by PastSimple)
+    // now opens after the Articles episode that takes place there.
+    const units = (src.courses[0]!.data as any).units;
+    [units[1], units[2]] = [units[2], units[1]];
+    expect(codes(src)).toEqual(["order.place"]);
+    episode(src, "articles_in_cafe").place_id = "reception";
+    episode(src, "articles_in_cafe").steps[0].speaker = "rocco";
+    expect(codes(src)).toEqual([]);
   });
 
-  it("a boss among ordinary encounters and a missing story", async () => {
-    const src = await realSource();
-    const step = (src.tracks[0]!.data as any).chapters[0].steps[0];
-    step.encounters.enemies = ["ash_golem"];
-    step.outro = "no_such_story";
-    expect(codes(src)).toEqual(expect.arrayContaining(["ref.enemy", "ref.story"]));
+  it("an episode using a task of another unit, or one that does not exist", async () => {
+    const src = await fixture();
+    episode(src, "to_be_at_reception").steps[1].task_id = "A1_PastSimple_01_q1";
+    episode(src, "articles_in_cafe").steps[0].task_id = "A1_Articles_01_nope";
+    const issues = validateContent(src).issues.filter((i) => i.code === "ref.task");
+    expect(issues.map((i) => i.message)).toEqual(
+      expect.arrayContaining([expect.stringContaining("belongs to unit"), expect.stringContaining("does not exist")]),
+    );
   });
 
-  it("a level curve that does not grow and a boss on patrol", async () => {
-    const src = await realSource();
-    const rules = src.progression![0]!.data as any;
-    rules.levels.xp_to_reach = [0, 100, 100];
-    rules.patrol.enemies = ["ash_golem"];
-    expect(codes(src)).toEqual(expect.arrayContaining(["progression.levels", "ref.enemy"]));
+  it("a branch to a missing step, an unreachable step and a loop without exit", async () => {
+    const src = await fixture();
+    const steps = episode(src, "to_be_at_reception").steps;
+    steps[2].next = "nowhere";
+    expect(codes(src)).toContain("ref.step");
+    steps[2].next = "end";
+    steps[1].on_wrong = "good"; // "oops" is now unreachable
+    expect(codes(src)).toEqual(["step.unreachable"]);
+    steps[1].on_wrong = "oops";
+    steps[1].on_correct = "oops"; // ask ↔ oops, the end is never reached
+    expect(codes(src)).toEqual(expect.arrayContaining(["step.unreachable", "step.no_end"]));
   });
 
-  it("a repair threshold outside 0..1", async () => {
-    const src = await realSource();
-    (src.progression![0]!.data as any).repair.threshold = 1.2;
-    expect(codes(src)).toContain("schema");
+  it("a last step that is not an end", async () => {
+    const src = await fixture();
+    episode(src, "articles_in_cafe").steps[1] = { id: "bye", kind: "line", speaker: "pip", text: { en: "Bye!" } };
+    expect(codes(src)).toContain("step.dangling");
   });
 
-  it("but accepts content without progression rules", async () => {
-    const src = await realSource();
-    delete src.progression;
-    expect(validateContent(src).ok).toBe(true);
+  it("an emotion the character has no portrait for, and an unknown speaker", async () => {
+    const src = await fixture();
+    episode(src, "articles_in_cafe").steps[0].emotion = "happy";
+    episode(src, "to_be_at_reception").steps[0].speaker = "nobody";
+    expect(codes(src)).toEqual(expect.arrayContaining(["ref.emotion", "ref.character"]));
+  });
+
+  it("a speaker who lives elsewhere is only a warning", async () => {
+    const src = await fixture();
+    const hello = episode(src, "to_be_at_reception").steps[0];
+    hello.speaker = "pip";
+    delete hello.emotion; // Pip has no "happy" portrait
+    const result = validateContent(src);
+    expect(result.ok).toBe(true);
+    expect(result.issues.map((i) => i.code)).toContain("speaker.elsewhere");
+  });
+
+  it("one unit opening two places", async () => {
+    const src = await fixture();
+    (src.places![0]!.data as any).places[0].unlocked_by = "A1_PastSimple_01";
+    expect(codes(src)).toContain("duplicate.unlock");
+  });
+
+  it("places without characters", async () => {
+    const src = await fixture();
+    delete src.characters;
+    expect(codes(src)).toContain("moonbridge.files");
   });
 });
 

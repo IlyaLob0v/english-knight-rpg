@@ -1,4 +1,4 @@
-import type { OutboxEntry, OutboxStore, Statement } from "@knight/xapi";
+import type { OutboxEntry, OutboxStore, Statement } from "@moonbridge/xapi";
 import type { GradeEntry, GradeJob, GradeStore } from "../grades.js";
 import type { IdentityStore } from "../lti/identity.js";
 import type { LoginStates, PendingLogin } from "../lti/launch.js";

@@ -1,5 +1,5 @@
-import type { ContentBundle } from "@knight/content";
-import { MemoryOutboxStore, Outbox, validateStatement, type Statement } from "@knight/xapi";
+import type { ContentBundle } from "@moonbridge/content";
+import { MemoryOutboxStore, Outbox, validateStatement, type Statement } from "@moonbridge/xapi";
 import { beforeAll, describe, expect, it } from "vitest";
 import { buildPatrol, ConceptScheduler, errorStats, LearningEngine, MemoryJournal, Rating } from "../src/index.js";
 import { loadBundle } from "./fixtures.js";
@@ -73,18 +73,18 @@ describe("LearningEngine", () => {
     const st = queued[0]!;
     expect(validateStatement(st)).toEqual({ ok: true, statement: st });
     expect(st.id).toBe(r.attempt.attempt_id);
-    expect(st.actor.account).toEqual({ homePage: "https://knight.example.com", name: "player_test" });
+    expect(st.actor.account).toEqual({ homePage: "https://moonbridge.example.com", name: "player_test" });
     expect(st.verb.id).toBe("http://adlnet.gov/expapi/verbs/answered");
     expect(st.result).toMatchObject({
       success: false,
       response: "goed",
       duration: "PT8.4S",
       extensions: {
-        "https://knight.example.com/xapi/ext/error-type": "https://knight.example.com/xapi/errors/grammar/overgeneralization",
-        "https://knight.example.com/xapi/ext/correct-form": "went",
+        "https://moonbridge.example.com/xapi/ext/error-type": "https://moonbridge.example.com/xapi/errors/grammar/overgeneralization",
+        "https://moonbridge.example.com/xapi/ext/correct-form": "went",
       },
     });
-    expect(st.context?.contextActivities?.grouping?.[0]?.id).toBe("https://knight.example.com/xapi/concepts/past_simple.irregular");
+    expect(st.context?.contextActivities?.grouping?.[0]?.id).toBe("https://moonbridge.example.com/xapi/concepts/past_simple.irregular");
     expect(engine.answeredStatement(r.attempt)).toEqual(st);
   });
 
