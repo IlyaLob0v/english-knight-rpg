@@ -26,7 +26,9 @@ async function main(): Promise<number> {
     return 1;
   }
   const bundle = buildBundle(result.content);
-  const counts = `${bundle.modules.length} modules, ${Object.keys(bundle.tasks).length} tasks, ${bundle.tracks.length} track(s)`;
+  const counts = `${bundle.modules.length} units, ${Object.keys(bundle.tasks).length} tasks, ${bundle.courses.length} course(s), ${
+    bundle.moonbridge ? `${bundle.moonbridge.episodes.length} Moonbridge episode(s)` : "no Moonbridge"
+  }`;
   if (command === "validate") {
     console.log(`Content OK: ${counts}, ${warnings} warning(s), hash ${bundle.content_hash}.`);
     return 0;

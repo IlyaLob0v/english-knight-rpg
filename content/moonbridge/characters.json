@@ -1,0 +1,50 @@
+{
+  "$schema": "../../packages/content/schemas/characters.schema.json",
+  "schema_version": "2.0",
+  "characters": [
+    {
+      "character_id": "rocco",
+      "name": "Rocco",
+      "species": { "en": "werewolf", "ru": "оборотень" },
+      "role": { "en": "night porter", "ru": "ночной портье" },
+      "portraits": {
+        "neutral": "characters/rocco/neutral.webp",
+        "happy": "characters/rocco/happy.webp",
+        "upset": "characters/rocco/upset.webp"
+      }
+    },
+    {
+      "character_id": "lev",
+      "name": "Lev",
+      "species": { "en": "gargoyle", "ru": "горгулья" },
+      "role": { "en": "lift operator", "ru": "лифтёр" },
+      "portraits": {
+        "neutral": "characters/lev/neutral.webp",
+        "happy": "characters/lev/happy.webp",
+        "upset": "characters/lev/upset.webp"
+      }
+    },
+    {
+      "character_id": "pip",
+      "name": "Pip",
+      "species": { "en": "fairy", "ru": "фея" },
+      "role": { "en": "barista at the Night Café", "ru": "бариста в Night Café" },
+      "portraits": {
+        "neutral": "characters/pip/neutral.webp",
+        "happy": "characters/pip/happy.webp",
+        "upset": "characters/pip/upset.webp"
+      }
+    },
+    {
+      "character_id": "kai",
+      "name": "Kai",
+      "species": { "en": "ghost", "ru": "призрак" },
+      "role": { "en": "radio DJ", "ru": "диджей радио" },
+      "portraits": {
+        "neutral": "characters/kai/neutral.webp",
+        "happy": "characters/kai/happy.webp",
+        "upset": "characters/kai/upset.webp"
+      }
+    }
+  ]
+}

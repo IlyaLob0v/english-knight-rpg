@@ -3,7 +3,7 @@ import type { ContentBundle, Task } from "./types.js";
 import type { ValidatedContent } from "./validate.js";
 
 /**
- * Flattens validated content into the bundle the game loads. The hash covers the
+ * Flattens validated content into the bundle the platform and Moonbridge load. The hash covers the
  * content only (not the build time), so an unchanged content tree gives the same hash.
  */
 export function buildBundle(content: ValidatedContent, builtAt = new Date()): ContentBundle {
@@ -15,12 +15,17 @@ export function buildBundle(content: ValidatedContent, builtAt = new Date()): Co
     taxonomy: content.taxonomy,
     modules: [...content.modules].sort((a, b) => a.module_id.localeCompare(b.module_id)),
     tasks: Object.fromEntries(Object.entries(tasks).sort(([a], [b]) => a.localeCompare(b))),
-    tracks: [...content.tracks].sort((a, b) => a.track_id.localeCompare(b.track_id)),
-    buildings: [...content.buildings].sort((a, b) => a.building_id.localeCompare(b.building_id)),
-    enemies: [...content.enemies].sort((a, b) => a.enemy_id.localeCompare(b.enemy_id)),
-    stories: [...content.stories].sort((a, b) => a.story_id.localeCompare(b.story_id)),
-    ...(content.progression ? { progression: content.progression } : {}),
+    courses: [...content.courses].sort((a, b) => a.course_id.localeCompare(b.course_id)),
+    ...(content.moonbridge
+      ? {
+          moonbridge: {
+            places: [...content.moonbridge.places].sort((a, b) => a.place_id.localeCompare(b.place_id)),
+            characters: [...content.moonbridge.characters].sort((a, b) => a.character_id.localeCompare(b.character_id)),
+            episodes: [...content.moonbridge.episodes].sort((a, b) => a.episode_id.localeCompare(b.episode_id)),
+          },
+        }
+      : {}),
   };
   const content_hash = createHash("sha256").update(JSON.stringify(body)).digest("hex").slice(0, 16);
-  return { bundle_schema_version: "1.0", content_hash, built_at: builtAt.toISOString(), ...body };
+  return { bundle_schema_version: "2.0", content_hash, built_at: builtAt.toISOString(), ...body };
 }

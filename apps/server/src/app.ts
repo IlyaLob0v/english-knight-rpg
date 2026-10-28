@@ -1,7 +1,7 @@
 import formbody from "@fastify/formbody";
-import { validateContent, type ContentBundle, type ContentSource } from "@knight/content";
-import { buildBundle } from "@knight/content/node";
-import { KnightProfile, Outbox, validateStatement, type Statement } from "@knight/xapi";
+import { validateContent, type ContentBundle, type ContentSource } from "@moonbridge/content";
+import { buildBundle } from "@moonbridge/content/node";
+import { XapiProfile, Outbox, validateStatement, type Statement } from "@moonbridge/xapi";
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import type { ServerConfig } from "./config.js";
 import { contextKey, type GradeOutcome, type GradeSync } from "./grades.js";
@@ -42,7 +42,7 @@ const GUEST_ID = /^guest_[0-9a-f]{8}$/;
 export async function buildApp(d: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({ logger: process.env.NODE_ENV !== "test", bodyLimit: 5 * 1024 * 1024 });
   await app.register(formbody);
-  const profile = new KnightProfile(d.config.xapiBaseIri);
+  const profile = new XapiProfile(d.config.xapiBaseIri);
   let bundle = d.bundle;
 
   const requireSession = async (req: FastifyRequest, reply: FastifyReply) => {
@@ -250,5 +250,5 @@ function ltiFailure(reply: FastifyReply, e: unknown) {
 
 function redirectPage(url: string): string {
   const safe = url.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
-  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${safe}"><title>Knight of Words</title></head><body><a href="${safe}">Continue to the game</a></body></html>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${safe}"><title>Moonbridge</title></head><body><a href="${safe}">Continue</a></body></html>`;
 }

@@ -1,4 +1,4 @@
-import { ADL_VERBS, type KnightProfile } from "./profile.js";
+import { ADL_VERBS, type XapiProfile } from "./profile.js";
 import type { LrsClient } from "./lrs-client.js";
 import type { Statement } from "./types.js";
 
@@ -20,7 +20,7 @@ export interface ConceptError {
  */
 export async function conceptErrors(
   lrs: Pick<LrsClient, "query">,
-  profile: KnightProfile,
+  profile: XapiProfile,
   conceptId: string,
   window: { since: Date; until?: Date; playerId?: string },
 ): Promise<ConceptError[]> {

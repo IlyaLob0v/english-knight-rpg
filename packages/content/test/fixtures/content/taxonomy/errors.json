@@ -1,0 +1,22 @@
+{
+  "$schema": "../../../../schemas/errors.schema.json",
+  "schema_version": "1.0",
+  "version": 1,
+  "error_types": [
+    { "id": "grammar.overgeneralization", "label": { "en": "Overgeneralized rule", "ru": "Правило применено не к месту (goed)" } },
+    { "id": "grammar.tense_not_changed", "label": { "en": "Tense not changed", "ru": "Время не изменено" } },
+    { "id": "grammar.wrong_form_v3", "label": { "en": "Past participle instead of past", "ru": "Третья форма вместо второй" } },
+    { "id": "grammar.agreement", "label": { "en": "Subject–verb agreement", "ru": "Согласование подлежащего и сказуемого" } },
+    { "id": "grammar.word_order", "label": { "en": "Word order", "ru": "Порядок слов" } },
+    { "id": "grammar.article", "label": { "en": "Article", "ru": "Артикль" } },
+    { "id": "grammar.auxiliary", "label": { "en": "Auxiliary verb", "ru": "Вспомогательный глагол" } },
+    { "id": "grammar.double_past", "label": { "en": "Past marked twice (didn't went)", "ru": "Прошедшее время отмечено дважды" } },
+    { "id": "lexis.wrong_word", "label": { "en": "Wrong word", "ru": "Не то слово" } },
+    { "id": "lexis.false_friend", "label": { "en": "False friend", "ru": "Ложный друг переводчика" } },
+    { "id": "lexis.collocation", "label": { "en": "Collocation", "ru": "Сочетаемость слов" } },
+    { "id": "spelling.typo", "label": { "en": "Typo", "ru": "Опечатка" } },
+    { "id": "spelling.double_letter", "label": { "en": "Double letter", "ru": "Удвоение согласной" } },
+    { "id": "comprehension.misread_prompt", "label": { "en": "Misread the task", "ru": "Неверно понято задание" } },
+    { "id": "unclassified", "label": { "en": "Unclassified", "ru": "Не классифицировано" } }
+  ]
+}

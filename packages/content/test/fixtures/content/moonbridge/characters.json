@@ -1,0 +1,17 @@
+{
+  "schema_version": "2.0",
+  "characters": [
+    {
+      "character_id": "rocco",
+      "name": "Rocco",
+      "species": { "en": "werewolf", "ru": "оборотень" },
+      "portraits": { "neutral": "characters/rocco/neutral.webp", "happy": "characters/rocco/happy.webp" }
+    },
+    {
+      "character_id": "pip",
+      "name": "Pip",
+      "species": { "en": "fairy", "ru": "фея" },
+      "portraits": { "neutral": "characters/pip/neutral.webp" }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "schema_version": "2.0",
+  "episode_id": "articles_in_cafe",
+  "module_id": "A1_Articles_01",
+  "place_id": "cafe",
+  "title": { "en": "An order", "ru": "Заказ" },
+  "steps": [
+    { "id": "order", "kind": "task", "speaker": "pip", "task_id": "A1_Articles_01_q1" },
+    { "id": "end", "kind": "end" }
+  ]
+}

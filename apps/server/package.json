@@ -1,5 +1,5 @@
 {
-  "name": "@knight/server",
+  "name": "@moonbridge/server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,8 +13,8 @@
   },
   "dependencies": {
     "@fastify/formbody": "^9.0.1",
-    "@knight/content": "workspace:*",
-    "@knight/xapi": "workspace:*",
+    "@moonbridge/content": "workspace:*",
+    "@moonbridge/xapi": "workspace:*",
     "fastify": "^5.12.7",
     "jose": "^6.2.13",
     "pg": "^8.23.1"

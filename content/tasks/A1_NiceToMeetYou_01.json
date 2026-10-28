@@ -1,0 +1,229 @@
+{
+  "$schema": "../../packages/content/schemas/task-set.schema.json",
+  "schema_version": "2.0",
+  "module_id": "A1_NiceToMeetYou_01",
+  "tasks": [
+    {
+      "task_id": "A1_NiceToMeetYou_01_hello",
+      "concept_id": "greetings.meeting",
+      "type": "choice",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "Good evening! Welcome to Hotel Hello. I'm Rocco.",
+        "instruction_ru": "Как ответить на приветствие?",
+        "options": [
+          { "id": "a", "text": "Nice to meet you, Rocco." },
+          { "id": "b", "text": "Goodbye, Rocco." },
+          { "id": "c", "text": "Nice to meet you too, Rocco." }
+        ]
+      },
+      "answer": {
+        "accepted": ["a"],
+        "known_errors": [
+          { "match": ["b"], "error_type": "lexis.wrong_word", "feedback": "Goodbye — это «до свидания». При знакомстве говорят Nice to meet you." },
+          { "match": ["c"], "error_type": "comprehension.misread_prompt", "feedback": "Too добавляют в ответ, когда «приятно познакомиться» уже сказали вам." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NiceToMeetYou_01_too",
+      "concept_id": "greetings.meeting",
+      "type": "gap_fill",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "— Nice to meet you! — Nice to meet you ___.",
+        "instruction_ru": "Ответьте на «приятно познакомиться»."
+      },
+      "answer": {
+        "accepted": ["too"],
+        "known_errors": [
+          { "match": ["to", "two"], "error_type": "spelling.typo", "feedback": "«Тоже» пишется too, с двумя o." },
+          { "match": ["also"], "error_type": "lexis.collocation", "feedback": "В этой фразе говорят only too: Nice to meet you too." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NiceToMeetYou_01_i_am",
+      "concept_id": "to_be.i_am",
+      "type": "gap_fill",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "I ___ a new guest.",
+        "hint": "I + am"
+      },
+      "answer": {
+        "accepted": ["am"],
+        "known_errors": [
+          { "match": ["is", "are"], "error_type": "grammar.agreement", "feedback": "С I всегда am: I am a new guest." },
+          { "match": ["be"], "error_type": "grammar.agreement", "feedback": "Be меняется: I am, you are, he is." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NiceToMeetYou_01_im_from",
+      "concept_id": "to_be.i_am",
+      "type": "order_words",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Tell Rocco where you are from.",
+        "instruction_ru": "Соберите фразу «Я из России».",
+        "tokens": ["Russia", "from", "I'm"]
+      },
+      "answer": {
+        "accepted": ["I'm from Russia"],
+        "known_errors": [
+          { "match": ["I'm Russia from", "from Russia I'm"], "error_type": "grammar.word_order", "feedback": "Сначала кто (I'm), потом откуда (from Russia)." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NiceToMeetYou_01_whats_your_name",
+      "concept_id": "possessives.my_your",
+      "type": "order_words",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Ask the guest for their name.",
+        "instruction_ru": "Соберите вопрос «Как вас зовут?».",
+        "tokens": ["your", "is", "What", "name"]
+      },
+      "answer": {
+        "accepted": ["What is your name"],
+        "known_errors": [
+          { "match": ["What your name is"], "error_type": "grammar.word_order", "feedback": "В вопросе is встаёт перед your name: What is your name?" }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NiceToMeetYou_01_are_you",
+      "concept_id": "to_be.you_are",
+      "type": "transform",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Make a question.",
+        "source": "You are a vampire.",
+        "instruction_ru": "Сделайте из утверждения вопрос."
+      },
+      "answer": {
+        "accepted": ["Are you a vampire?"],
+        "known_errors": [
+          { "match": ["You are a vampire?"], "error_type": "grammar.word_order", "feedback": "В вопросе are встаёт перед you: Are you…?" },
+          { "match": ["Is you a vampire?", "Am you a vampire?"], "error_type": "grammar.agreement", "feedback": "С you всегда are." },
+          { "match": ["Do you a vampire?", "Do you are a vampire?"], "error_type": "grammar.auxiliary", "feedback": "С be вопрос строится без do: Are you a vampire?" },
+          { "match": ["Are you vampire?"], "error_type": "grammar.article", "feedback": "Артикль a остаётся: Are you a vampire?" }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NiceToMeetYou_01_you_are",
+      "concept_id": "to_be.you_are",
+      "type": "gap_fill",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "You ___ in room 13.",
+        "hint": "you + are"
+      },
+      "answer": {
+        "accepted": ["are"],
+        "known_errors": [
+          { "match": ["is", "am"], "error_type": "grammar.agreement", "feedback": "С you всегда are: You are in room 13." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NiceToMeetYou_01_my_name",
+      "concept_id": "possessives.my_your",
+      "type": "choice",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "___ name is Anna.",
+        "instruction_ru": "Как сказать «Меня зовут Анна»?",
+        "options": [
+          { "id": "my", "text": "My" },
+          { "id": "me", "text": "Me" },
+          { "id": "i", "text": "I" }
+        ]
+      },
+      "answer": {
+        "accepted": ["my"],
+        "known_errors": [
+          { "match": ["me", "i"], "error_type": "grammar.agreement", "feedback": "Перед существительным нужно my: My name is Anna." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NiceToMeetYou_01_listen_kai",
+      "concept_id": "to_be.i_am",
+      "type": "listen_type",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Kai is on the phone. Type what Kai says.",
+        "instruction_ru": "Послушайте и напечатайте, что говорит Кай.",
+        "audio": "audio/A1_NiceToMeetYou_01_listen_kai.mp3"
+      },
+      "answer": {
+        "accepted": ["Hi, I'm Kai. I'm from Moonbridge.", "Hi, I am Kai. I am from Moonbridge."],
+        "known_errors": [
+          { "match": ["Hi, I Kai. I from Moonbridge.", "Hi, I'm Kai. I from Moonbridge."], "error_type": "grammar.auxiliary", "feedback": "Am не пропадает: I'm Kai, I'm from Moonbridge." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NiceToMeetYou_01_translate_tired",
+      "concept_id": "to_be.i_am",
+      "type": "translate_ru_en",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Rocco asks how you are. Answer in English.",
+        "instruction_ru": "Переведите на английский.",
+        "source": "Я устал, но я рад быть здесь."
+      },
+      "answer": {
+        "accepted": ["I'm tired, but I'm happy to be here.", "I am tired, but I am happy to be here.", "I'm tired but I'm glad to be here.", "I am tired but I am glad to be here."],
+        "known_errors": [
+          { "match": ["I tired, but I happy to be here.", "I tired but I glad to be here."], "error_type": "grammar.auxiliary", "feedback": "В английском нужен глагол: I am tired, I am happy." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NiceToMeetYou_01_choose_translation",
+      "concept_id": "to_be.you_are",
+      "type": "translate_en_ru",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "Are you a guest here?",
+        "instruction_ru": "Выберите перевод.",
+        "source": "Are you a guest here?",
+        "options": [
+          { "id": "a", "text": "Вы здесь гость?" },
+          { "id": "b", "text": "Вы были здесь гостем?" },
+          { "id": "c", "text": "Где здесь гости?" }
+        ]
+      },
+      "answer": {
+        "accepted": ["a"],
+        "known_errors": [
+          { "match": ["b"], "error_type": "grammar.tense_not_changed", "feedback": "Are — настоящее время: «вы сейчас гость?»" },
+          { "match": ["c"], "error_type": "comprehension.misread_prompt", "feedback": "Are you…? — вопрос к собеседнику: «вы…?»" }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NiceToMeetYou_01_find_error",
+      "concept_id": "to_be.you_are",
+      "type": "find_error",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Pip wrote a note. Find the wrong word.",
+        "instruction_ru": "Нажмите на слово с ошибкой.",
+        "tokens": ["You", "is", "my", "new", "neighbour", "."]
+      },
+      "answer": {
+        "accepted": ["1"],
+        "correction": "are",
+        "known_errors": [
+          { "match": ["2"], "error_type": "comprehension.misread_prompt", "feedback": "My здесь верно: «мой сосед». Ошибка в is: с you нужно are." }
+        ]
+      }
+    }
+  ]
+}

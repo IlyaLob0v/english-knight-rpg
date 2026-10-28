@@ -1,9 +1,9 @@
 {
-  "name": "@knight/xapi",
+  "name": "@moonbridge/xapi",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "xAPI 1.0.3 statement builder, knight-v1 profile, LRS client and delivery outbox",
+  "description": "xAPI 1.0.3 statement builder, moonbridge-v1 profile, LRS client and delivery outbox",
   "exports": { ".": "./src/index.ts" },
   "dependencies": {
     "ajv": "^8.20.0",

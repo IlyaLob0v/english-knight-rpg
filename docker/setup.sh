@@ -26,21 +26,21 @@ until curl -sf -o /dev/null http://localhost:8080/login/index.php; do
 done
 echo " ready"
 
-# The activities come from the course track, so a new module gets its LMS link on the next run.
+# The activities come from the course files, so a new unit gets its LMS link on the next run.
 MODULES=$(node -e '
 const fs = require("fs");
-const track = JSON.parse(fs.readFileSync("content/tracks/main.json", "utf8"));
-const modules = fs.readdirSync("content/modules").filter((f) => f.endsWith(".json")).map((f) => JSON.parse(fs.readFileSync("content/modules/" + f, "utf8")));
-const out = track.chapters.flatMap((c) => c.steps).map((s) => ({ id: s.module_id, title: modules.find((m) => m.module_id === s.module_id).title.en }));
+const read = (dir) => fs.readdirSync(dir).filter((f) => f.endsWith(".json")).map((f) => JSON.parse(fs.readFileSync(dir + "/" + f, "utf8")));
+const modules = read("content/modules");
+const out = read("content/courses").flatMap((c) => c.units).map((id) => ({ id, title: modules.find((m) => m.module_id === id).title.en }));
 process.stdout.write(JSON.stringify(out));
 ')
-docker compose exec -T -e KNIGHT_MODULES="$MODULES" moodle php /provision/provision.php > "$STATE/lti-platforms.json"
+docker compose exec -T -e MOONBRIDGE_MODULES="$MODULES" moodle php /provision/provision.php > "$STATE/lti-platforms.json"
 
 cat > "$STATE/gateway.env" <<ENV
-DATABASE_URL=postgres://knight:knight@localhost:5432/knight
+DATABASE_URL=postgres://moonbridge:moonbridge@localhost:5432/moonbridge
 LRS_ENDPOINT=http://localhost:8090/xapi
-LRS_KEY=knight-gateway
-LRS_SECRET=knight-gateway-secret
+LRS_KEY=moonbridge-gateway
+LRS_SECRET=moonbridge-gateway-secret
 LTI_PLATFORMS_FILE=$PWD/$STATE/lti-platforms.json
 LTI_PRIVATE_KEY_FILE=$PWD/$STATE/tool-key.pem
 PUBLIC_URL=http://localhost:8787
@@ -51,5 +51,5 @@ echo
 echo "Done. Next, in two terminals:"
 echo "  pnpm dev:server:lms   # the gateway with Postgres, the LRS and Moodle"
 echo "  pnpm dev:client"
-echo "Moodle: http://localhost:8080 (student / Knight-Student-1, teacher / Knight-Teacher-1, admin / Knight-Admin-1)"
-echo "LRS admin: http://localhost:8090 (admin / knight-admin)"
+echo "Moodle: http://localhost:8080 (student / Moonbridge-Student-1, teacher / Moonbridge-Teacher-1, admin / Moonbridge-Admin-1)"
+echo "LRS admin: http://localhost:8090 (admin / moonbridge-admin)"

@@ -1,0 +1,14 @@
+{
+  "schema_version": "2.0",
+  "episode_id": "to_be_at_reception",
+  "module_id": "A1_VerbToBe_01",
+  "place_id": "reception",
+  "title": { "en": "Check-in", "ru": "Заселение" },
+  "steps": [
+    { "id": "hello", "kind": "line", "speaker": "rocco", "emotion": "happy", "text": { "en": "Welcome!" } },
+    { "id": "ask", "kind": "task", "speaker": "rocco", "task_id": "A1_VerbToBe_01_q1", "on_wrong": "oops" },
+    { "id": "good", "kind": "line", "speaker": "rocco", "text": { "en": "Perfect." }, "next": "end" },
+    { "id": "oops", "kind": "line", "speaker": "narrator", "text": { "en": "Rocco gives you the wrong key." }, "next": "ask" },
+    { "id": "end", "kind": "end" }
+  ]
+}

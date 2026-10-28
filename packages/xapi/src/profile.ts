@@ -1,8 +1,8 @@
-// The knight-v1 xAPI profile: every verb, activity type and extension IRI the game
+// The moonbridge-v1 xAPI profile: every verb, activity type and extension IRI the platform
 // emits is defined here, so that their meaning cannot drift between client, server
 // and analytics. Never change the meaning of an existing IRI; add a new one instead.
 
-export const DEFAULT_BASE_IRI = "https://knight.example.com";
+export const DEFAULT_BASE_IRI = "https://moonbridge.example.com";
 
 export const ADL_VERBS = {
   answered: "http://adlnet.gov/expapi/verbs/answered",
@@ -19,7 +19,7 @@ export const ACTIVITY_TYPES = {
   course: "http://adlnet.gov/expapi/activities/course",
 } as const;
 
-export type VerbKey = keyof typeof ADL_VERBS | "built" | "defeated" | "repaired";
+export type VerbKey = keyof typeof ADL_VERBS | "unlocked";
 export type ExtensionKey =
   | "error-type"
   | "correct-form"
@@ -33,13 +33,13 @@ export type ExtensionKey =
   | "fsrs-rating";
 
 /** IRIs for a deployment. The base IRI should be a domain you control (it identifies your data forever). */
-export class KnightProfile {
+export class XapiProfile {
   constructor(readonly baseIri: string = DEFAULT_BASE_IRI) {
     if (baseIri.endsWith("/")) this.baseIri = baseIri.slice(0, -1);
   }
 
   get id(): string {
-    return `${this.baseIri}/xapi/profile/knight-v1`;
+    return `${this.baseIri}/xapi/profile/moonbridge-v1`;
   }
 
   verb(key: VerbKey): { id: string; display: { "en-US": string } } {
@@ -63,16 +63,13 @@ export class KnightProfile {
     return `${this.baseIri}/xapi/concepts/${encodeURIComponent(conceptId)}`;
   }
 
-  track(trackId: string): string {
-    return `${this.baseIri}/xapi/tracks/${encodeURIComponent(trackId)}`;
+  course(courseId: string): string {
+    return `${this.baseIri}/xapi/courses/${encodeURIComponent(courseId)}`;
   }
 
-  building(buildingId: string): string {
-    return `${this.baseIri}/xapi/buildings/${encodeURIComponent(buildingId)}`;
-  }
-
-  enemy(enemyId: string): string {
-    return `${this.baseIri}/xapi/enemies/${encodeURIComponent(enemyId)}`;
+  /** A Moonbridge place (reception, Night Café…). */
+  place(placeId: string): string {
+    return `${this.baseIri}/xapi/moonbridge/places/${encodeURIComponent(placeId)}`;
   }
 
   /** "grammar.overgeneralization" → …/xapi/errors/grammar/overgeneralization */
@@ -80,7 +77,7 @@ export class KnightProfile {
     return `${this.baseIri}/xapi/errors/${errorTypeId.split(".").map(encodeURIComponent).join("/")}`;
   }
 
-  /** The actor's account home page: the game itself, so the actor never carries email or name. */
+  /** The actor's account home page: the platform itself, so the actor never carries email or name. */
   get accountHomePage(): string {
     return this.baseIri;
   }

@@ -1,25 +1,25 @@
 import { Ajv2020, type ValidateFunction } from "ajv/dist/2020.js";
 import moduleSchema from "../schemas/module.schema.json" with { type: "json" };
 import taskSetSchema from "../schemas/task-set.schema.json" with { type: "json" };
-import trackSchema from "../schemas/track.schema.json" with { type: "json" };
-import buildingsSchema from "../schemas/buildings.schema.json" with { type: "json" };
-import enemiesSchema from "../schemas/enemies.schema.json" with { type: "json" };
+import courseSchema from "../schemas/course.schema.json" with { type: "json" };
 import errorsSchema from "../schemas/errors.schema.json" with { type: "json" };
-import storySchema from "../schemas/story.schema.json" with { type: "json" };
-import progressionSchema from "../schemas/progression.schema.json" with { type: "json" };
+import placesSchema from "../schemas/places.schema.json" with { type: "json" };
+import charactersSchema from "../schemas/characters.schema.json" with { type: "json" };
+import episodeSchema from "../schemas/episode.schema.json" with { type: "json" };
 import { normalizeAnswer, tokenize } from "./normalize.js";
 import type {
-  Building,
+  Character,
   ContentSource,
-  Enemy,
+  Course,
+  Episode,
+  EpisodeStep,
   ErrorTaxonomy,
   Module,
-  Progression,
+  MoonbridgeContent,
+  Place,
   SourceFile,
-  Story,
   Task,
   TaskSet,
-  Track,
 } from "./types.js";
 
 export type Severity = "error" | "warning";
@@ -36,11 +36,8 @@ export interface ValidatedContent {
   taxonomy: ErrorTaxonomy;
   modules: Module[];
   taskSets: TaskSet[];
-  tracks: Track[];
-  buildings: Building[];
-  enemies: Enemy[];
-  stories: Story[];
-  progression?: Progression;
+  courses: Course[];
+  moonbridge?: MoonbridgeContent;
 }
 
 export interface ValidationResult {
@@ -54,12 +51,11 @@ const ajv = new Ajv2020({ allErrors: true, strict: true, strictRequired: false, 
 const validators = {
   module: ajv.compile(moduleSchema),
   taskSet: ajv.compile(taskSetSchema),
-  track: ajv.compile(trackSchema),
-  buildings: ajv.compile(buildingsSchema),
-  enemies: ajv.compile(enemiesSchema),
+  course: ajv.compile(courseSchema),
   errors: ajv.compile(errorsSchema),
-  story: ajv.compile(storySchema),
-  progression: ajv.compile(progressionSchema),
+  places: ajv.compile(placesSchema),
+  characters: ajv.compile(charactersSchema),
+  episode: ajv.compile(episodeSchema),
 };
 
 function schemaPass<T>(files: SourceFile[], validate: ValidateFunction, issues: Issue[]): SourceFile<T>[] {
@@ -96,17 +92,18 @@ export function validateContent(source: ContentSource): ValidationResult {
   const taxonomyFiles = schemaPass<ErrorTaxonomy>(source.taxonomy, validators.errors, issues);
   const moduleFiles = schemaPass<Module>(source.modules, validators.module, issues);
   const taskSetFiles = schemaPass<TaskSet>(source.taskSets, validators.taskSet, issues);
-  const trackFiles = schemaPass<Track>(source.tracks, validators.track, issues);
-  const buildingFiles = schemaPass<{ buildings: Building[] }>(source.buildings, validators.buildings, issues);
-  const enemyFiles = schemaPass<{ enemies: Enemy[] }>(source.enemies, validators.enemies, issues);
-  const storyFiles = schemaPass<Story>(source.stories ?? [], validators.story, issues);
-  const progressionFiles = schemaPass<Progression>(source.progression ?? [], validators.progression, issues);
+  const courseFiles = schemaPass<Course>(source.courses, validators.course, issues);
+  const placeFiles = schemaPass<{ places: Place[] }>(source.places ?? [], validators.places, issues);
+  const characterFiles = schemaPass<{ characters: Character[] }>(source.characters ?? [], validators.characters, issues);
+  const episodeFiles = schemaPass<Episode>(source.episodes ?? [], validators.episode, issues);
 
   if (source.taxonomy.length !== 1) {
     err("taxonomy/", "taxonomy.count", `expected exactly one error taxonomy file, found ${source.taxonomy.length}`);
   }
-  if ((source.progression?.length ?? 0) > 1) {
-    err("world/", "progression.count", `expected at most one progression file, found ${source.progression!.length}`);
+  if (source.courses.length === 0) err("courses/", "course.count", "expected at least one course file");
+  const hasMoonbridge = [source.places, source.characters, source.episodes].some((f) => (f?.length ?? 0) > 0);
+  if (hasMoonbridge && (source.places?.length !== 1 || source.characters?.length !== 1)) {
+    err("moonbridge/", "moonbridge.files", "Moonbridge needs exactly one places.json and one characters.json");
   }
   // Cross-file checks only make sense on schema-valid data; stop here otherwise.
   if (issues.some((i) => i.severity === "error")) return { ok: false, issues };
@@ -181,8 +178,8 @@ export function validateContent(source: ContentSource): ValidationResult {
       else if (t.module_id !== m.module_id) err(file, "ref.task", `task "${id}" belongs to module "${t.module_id}"`);
       return t?.module_id === m.module_id;
     });
-    if (pool.length < m.mastery.boss_task_count) {
-      err(file, "mastery.pool", `boss needs ${m.mastery.boss_task_count} tasks but the pool has ${pool.length}`);
+    if (pool.length < m.mastery.check_task_count) {
+      err(file, "mastery.pool", `the unit check needs ${m.mastery.check_task_count} tasks but the pool has ${pool.length}`);
     }
     const conceptsWithTasks = new Set(pool.map((id) => tasks.get(id)!.task.concept_id));
     for (const c of m.concepts) {
@@ -195,70 +192,29 @@ export function validateContent(source: ContentSource): ValidationResult {
     }
   }
 
-  // World.
-  const buildings = collectUnique(buildingFiles, (d) => d.buildings, (b) => b.building_id, "building_id", err);
-  const enemies = collectUnique(enemyFiles, (d) => d.enemies, (e) => e.enemy_id, "enemy_id", err);
-  const stories = collectUnique(storyFiles, (d) => [d], (st) => st.story_id, "story_id", err);
-  const storyRef = (where: string, id: string | undefined) => {
-    if (id !== undefined && !stories.has(id)) err(where, "ref.story", `story "${id}" does not exist`);
-  };
-
-  // Tracks: references and prerequisite order.
-  const trackIds = new Set<string>();
-  for (const { path, data: track } of trackFiles) {
-    if (trackIds.has(track.track_id)) err(path, "duplicate.track_id", `track "${track.track_id}" is defined twice`);
-    trackIds.add(track.track_id);
-    const seen = new Set<string>();
-    const buildingsUsed = new Set<string>();
-    for (const chapter of track.chapters) {
-      storyRef(`${path} › ${chapter.chapter_id}`, chapter.story_intro);
-      for (const step of chapter.steps) {
-        const where = `${path} › ${chapter.chapter_id} › ${step.module_id}`;
-        const mod = modules.get(step.module_id);
-        if (!mod) err(where, "ref.module", `module "${step.module_id}" does not exist`);
-        if (seen.has(step.module_id)) err(where, "duplicate.track_step", `module "${step.module_id}" appears twice in the track`);
-        for (const p of mod?.module.prerequisites ?? []) {
-          if (!seen.has(p)) {
-            err(where, "order.prerequisites", `prerequisite "${p}" must come earlier in the track than "${step.module_id}"`);
-          }
-        }
-        seen.add(step.module_id);
-        if (!buildings.has(step.unlocks_building)) err(where, "ref.building", `building "${step.unlocks_building}" does not exist`);
-        if (buildingsUsed.has(step.unlocks_building)) {
-          err(where, "duplicate.building", `building "${step.unlocks_building}" is unlocked by two steps`);
-        }
-        buildingsUsed.add(step.unlocks_building);
-        if (step.boss !== undefined) {
-          const enemy = enemies.get(step.boss);
-          if (!enemy) err(where, "ref.enemy", `boss "${step.boss}" does not exist`);
-          else if (enemy.role !== "boss") err(where, "ref.enemy", `enemy "${step.boss}" has role "${enemy.role}", expected "boss"`);
-        }
-        for (const id of step.encounters?.enemies ?? []) {
-          const enemy = enemies.get(id);
-          if (!enemy) err(where, "ref.enemy", `encounter enemy "${id}" does not exist`);
-          else if (enemy.role === "boss") err(where, "ref.enemy", `encounter enemy "${id}" is a boss; bosses belong in "boss"`);
-        }
-        storyRef(where, step.intro);
-        storyRef(where, step.outro);
+  // Courses: references and prerequisite order. The position of a unit in each course is kept
+  // for the Moonbridge checks below.
+  const courseIds = new Set<string>();
+  const positions: Map<string, number>[] = [];
+  for (const { path, data: course } of courseFiles) {
+    if (courseIds.has(course.course_id)) err(path, "duplicate.course_id", `course "${course.course_id}" is defined twice`);
+    courseIds.add(course.course_id);
+    const position = new Map<string, number>();
+    course.units.forEach((id, i) => {
+      const where = `${path} › ${id}`;
+      const mod = modules.get(id);
+      if (!mod) err(where, "ref.module", `unit "${id}" does not exist`);
+      for (const p of mod?.module.prerequisites ?? []) {
+        if (!position.has(p)) err(where, "order.prerequisites", `prerequisite "${p}" must come earlier in the course than "${id}"`);
       }
-    }
+      position.set(id, i);
+    });
+    positions.push(position);
   }
 
-  // Progression: the level curve and patrol enemies.
-  const progression = progressionFiles[0];
-  if (progression) {
-    const { path, data: pr } = progression;
-    const xp = pr.levels.xp_to_reach;
-    if (xp[0] !== 0) err(path, "progression.levels", "xp_to_reach must start with 0 (level 1)");
-    for (let i = 1; i < xp.length; i++) {
-      if (xp[i]! <= xp[i - 1]!) err(path, "progression.levels", `xp_to_reach must grow: level ${i + 1} needs ${xp[i]} after ${xp[i - 1]}`);
-    }
-    for (const id of pr.patrol.enemies) {
-      const enemy = enemies.get(id);
-      if (!enemy) err(path, "ref.enemy", `patrol enemy "${id}" does not exist`);
-      else if (enemy.role === "boss") err(path, "ref.enemy", `patrol enemy "${id}" is a boss`);
-    }
-  }
+  const moonbridge = hasMoonbridge
+    ? checkMoonbridge(placeFiles, characterFiles, episodeFiles, modules, tasks, positions, err, warn)
+    : undefined;
 
   const ok = !issues.some((i) => i.severity === "error");
   return {
@@ -269,11 +225,8 @@ export function validateContent(source: ContentSource): ValidationResult {
           taxonomy,
           modules: [...modules.values()].map((m) => m.module),
           taskSets: taskSetFiles.map((f) => f.data),
-          tracks: trackFiles.map((f) => f.data),
-          buildings: [...buildings.values()],
-          enemies: [...enemies.values()],
-          stories: [...stories.values()],
-          ...(progression ? { progression: progression.data } : {}),
+          courses: courseFiles.map((f) => f.data),
+          ...(moonbridge ? { moonbridge } : {}),
         }
       : undefined,
   };
@@ -283,8 +236,8 @@ function checkAnswer(
   task: Task,
   where: string,
   errorTypes: Set<string>,
-  err: (file: string, code: string, message: string) => void,
-  warn: (file: string, code: string, message: string) => void,
+  err: Report,
+  warn: Report,
 ) {
   const cs = task.answer.case_sensitive ?? false;
   const accepted = new Set(task.answer.accepted.map((a) => normalizeAnswer(a, cs)));
@@ -297,7 +250,7 @@ function checkAnswer(
     }
   }
 
-  if (task.type === "choice") {
+  if (task.type === "choice" || task.type === "translate_en_ru") {
     const optionIds = new Set(task.presentation.options?.map((o) => o.id));
     if (optionIds.size !== task.presentation.options?.length) err(where, "answer.options", "option ids must be unique");
     for (const a of task.answer.accepted) {
@@ -320,8 +273,151 @@ function checkAnswer(
     }
   }
 
+  if (task.type === "find_error") {
+    const count = task.presentation.tokens!.length;
+    for (const a of [...task.answer.accepted, ...known.flatMap((k) => k.match)]) {
+      if (!/^[0-9]+$/.test(a) || Number(a) >= count) err(where, "answer.token_ref", `"${a}" is not a token index (0–${count - 1})`);
+    }
+  }
+
   if (task.type === "gap_fill" && !task.presentation.prompt.includes("___")) {
     err(where, "presentation.gap", 'gap_fill prompt must contain a "___" gap');
+  }
+}
+
+type Report = (file: string, code: string, message: string) => void;
+
+/**
+ * Cross-file checks of the Moonbridge section: every reference resolves, every episode can be
+ * played to an end, and no episode takes place somewhere its unit has not opened yet.
+ */
+function checkMoonbridge(
+  placeFiles: SourceFile<{ places: Place[] }>[],
+  characterFiles: SourceFile<{ characters: Character[] }>[],
+  episodeFiles: SourceFile<Episode>[],
+  modules: Map<string, { file: string; module: Module }>,
+  tasks: Map<string, { file: string; module_id: string; task: Task }>,
+  coursePositions: Map<string, number>[],
+  err: Report,
+  warn: Report,
+): MoonbridgeContent {
+  const characters = collectUnique(characterFiles, (d) => d.characters, (c) => c.character_id, "character_id", err);
+  const places = collectUnique(placeFiles, (d) => d.places, (p) => p.place_id, "place_id", err);
+
+  const unlockedBy = new Map<string, string>();
+  for (const { path, data } of placeFiles) {
+    for (const place of data.places) {
+      const where = `${path} › ${place.place_id}`;
+      for (const c of place.characters) {
+        if (!characters.has(c)) err(where, "ref.character", `character "${c}" does not exist`);
+      }
+      if (place.unlocked_by === null) continue;
+      if (!modules.has(place.unlocked_by)) err(where, "ref.module", `unit "${place.unlocked_by}" does not exist`);
+      const other = unlockedBy.get(place.unlocked_by);
+      if (other) err(where, "duplicate.unlock", `unit "${place.unlocked_by}" already opens "${other}"`);
+      unlockedBy.set(place.unlocked_by, place.place_id);
+    }
+  }
+
+  const episodes = collectUnique(episodeFiles, (d) => [d], (e) => e.episode_id, "episode_id", err);
+  for (const { path, data: ep } of episodeFiles) {
+    if (!modules.has(ep.module_id)) err(path, "ref.module", `unit "${ep.module_id}" does not exist`);
+    const place = places.get(ep.place_id);
+    if (!place) err(path, "ref.place", `place "${ep.place_id}" does not exist`);
+    else if (place.unlocked_by !== null && place.unlocked_by !== ep.module_id) {
+      // The place must already be open when the student reaches the episode's unit, in every course that has both.
+      for (const pos of coursePositions) {
+        const opens = pos.get(place.unlocked_by);
+        const at = pos.get(ep.module_id);
+        if (at !== undefined && (opens === undefined || opens > at)) {
+          err(path, "order.place", `place "${place.place_id}" opens with "${place.unlocked_by}", after unit "${ep.module_id}"`);
+          break;
+        }
+      }
+    }
+    checkSteps(ep, path, place, characters, tasks, err, warn);
+  }
+
+  return { places: [...places.values()], characters: [...characters.values()], episodes: [...episodes.values()] };
+}
+
+function checkSteps(
+  ep: Episode,
+  path: string,
+  place: Place | undefined,
+  characters: Map<string, Character>,
+  tasks: Map<string, { file: string; module_id: string; task: Task }>,
+  err: Report,
+  warn: Report,
+) {
+  const index = new Map<string, number>();
+  ep.steps.forEach((step, i) => {
+    if (index.has(step.id)) err(`${path} › ${step.id}`, "duplicate.step_id", `step "${step.id}" is defined twice`);
+    else index.set(step.id, i);
+  });
+
+  const successors = (step: EpisodeStep, i: number): string[] => {
+    const following = ep.steps[i + 1]?.id;
+    const out = step.kind === "line" ? [step.next ?? following] : step.kind === "task" ? [step.on_correct ?? following, step.on_wrong ?? following] : [];
+    return out.filter((id): id is string => id !== undefined);
+  };
+
+  ep.steps.forEach((step, i) => {
+    const where = `${path} › ${step.id}`;
+    if (step.kind === "line" || step.kind === "task") {
+      const targets = step.kind === "line" ? [step.next] : [step.on_correct, step.on_wrong];
+      for (const target of targets) {
+        if (target !== undefined && !index.has(target)) err(where, "ref.step", `step "${target}" does not exist`);
+      }
+      if (successors(step, i).length < (step.kind === "line" ? 1 : 2)) {
+        err(where, "step.dangling", "the last step must be an end, or name where to go next");
+      }
+      const speaker = step.speaker;
+      if (speaker !== undefined && speaker !== "narrator" && speaker !== "player") {
+        const character = characters.get(speaker);
+        if (!character) err(where, "ref.character", `speaker "${speaker}" does not exist`);
+        else {
+          if (step.emotion && step.emotion !== "neutral" && !character.portraits[step.emotion]) {
+            err(where, "ref.emotion", `"${speaker}" has no "${step.emotion}" portrait`);
+          }
+          if (place && !place.characters.includes(speaker)) {
+            warn(where, "speaker.elsewhere", `"${speaker}" does not live in "${place.place_id}"`);
+          }
+        }
+      }
+    }
+    if (step.kind === "task") {
+      const t = tasks.get(step.task_id);
+      if (!t) err(where, "ref.task", `task "${step.task_id}" does not exist`);
+      else if (t.module_id !== ep.module_id) err(where, "ref.task", `task "${step.task_id}" belongs to unit "${t.module_id}", not "${ep.module_id}"`);
+    }
+  });
+  if (!ep.steps.some((s) => s.kind === "task")) warn(path, "episode.no_tasks", "the episode has no tasks");
+
+  // Every step must be reachable from the start, and an end must be reachable from every step.
+  const graph = new Map(ep.steps.map((s, i) => [s.id, successors(s, i).filter((id) => index.has(id))]));
+  const reached = new Set<string>();
+  const walk = (id: string) => {
+    if (reached.has(id)) return;
+    reached.add(id);
+    for (const next of graph.get(id) ?? []) walk(next);
+  };
+  walk(ep.steps[0]!.id);
+  for (const s of ep.steps) {
+    if (!reached.has(s.id)) err(`${path} › ${s.id}`, "step.unreachable", "no path from the start leads to this step");
+  }
+  const canEnd = new Set(ep.steps.filter((s) => s.kind === "end").map((s) => s.id));
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const [id, next] of graph) {
+      if (!canEnd.has(id) && next.some((n) => canEnd.has(n))) {
+        canEnd.add(id);
+        grew = true;
+      }
+    }
+  }
+  for (const s of ep.steps) {
+    if (reached.has(s.id) && !canEnd.has(s.id)) err(`${path} › ${s.id}`, "step.no_end", "the episode cannot end from this step (a loop without exit)");
   }
 }
 

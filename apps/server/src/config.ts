@@ -55,7 +55,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     publicUrl: (env.PUBLIC_URL ?? `http://localhost:${port}`).replace(/\/$/, ""),
     clientUrl: env.CLIENT_URL ?? "http://localhost:5173",
     contentDir: env.CONTENT_DIR ?? new URL("../../../content", import.meta.url).pathname,
-    xapiBaseIri: env.XAPI_BASE_IRI ?? "https://knight.example.com",
+    xapiBaseIri: env.XAPI_BASE_IRI ?? "https://moonbridge.example.com",
     sessionSecret,
     sessionTtlSeconds: Number(env.SESSION_TTL_SECONDS ?? 8 * 3600),
     ...(env.ADMIN_TOKEN ? { adminToken: env.ADMIN_TOKEN } : {}),
@@ -67,7 +67,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     lti: {
       platforms: platforms ? (JSON.parse(platforms) as PlatformConfig[]) : [],
       ...(privateKeyPem ? { privateKeyPem } : {}),
-      keyId: env.LTI_KEY_ID ?? "knight-tool-1",
+      keyId: env.LTI_KEY_ID ?? "moonbridge-tool-1",
     },
   };
 }

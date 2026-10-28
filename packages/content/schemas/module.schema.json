@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://knight.example.com/schemas/module.schema.json",
-  "title": "Learning module",
-  "description": "One learning module: topic, concepts (FSRS cards) and the pool of task ids. A module does not know its place in a story or which building it unlocks: that is the track's job.",
+  "$id": "https://moonbridge.example.com/schemas/module.schema.json",
+  "title": "Course unit (module)",
+  "description": "One course unit (юнит, about a week of the course): topic, concepts (spaced-repetition cards) and the pool of task ids. A unit does not know its place in a course or in Moonbridge: courses/*.json orders units, moonbridge/*.json ties them to places and episodes.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "module_id", "version", "cefr_level", "title", "skill", "concepts", "prerequisites", "mastery", "tasks"],
   "properties": {
     "$schema": { "type": "string" },
-    "schema_version": { "const": "1.0" },
+    "schema_version": { "const": "2.0" },
     "module_id": { "$ref": "#/$defs/moduleId" },
     "version": { "type": "integer", "minimum": 1, "description": "Bump on every content change; recorded in each xAPI statement as content-version." },
     "cefr_level": { "enum": ["A1", "A2", "B1", "B2", "C1", "C2"] },
@@ -39,9 +39,9 @@
     "mastery": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["boss_task_count", "pass_score"],
+      "required": ["check_task_count", "pass_score"],
       "properties": {
-        "boss_task_count": { "type": "integer", "minimum": 1 },
+        "check_task_count": { "type": "integer", "minimum": 1, "description": "Tasks in the unit check; the pool needs at least this many." },
         "pass_score": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
       }
     },

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://knight.example.com/schemas/errors.schema.json",
+  "$id": "https://moonbridge.example.com/schemas/errors.schema.json",
   "title": "Error taxonomy",
   "description": "Two levels: a fixed category and an extensible subtype. Ids become xAPI IRIs, so they are never renamed or reused.",
   "type": "object",

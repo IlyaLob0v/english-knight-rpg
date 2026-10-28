@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moonbridge.example.com/schemas/course.schema.json",
+  "title": "Course",
+  "description": "The order of a course's units. Reordering units is an edit of this file only; Moonbridge places follow the units that unlock them.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "course_id", "title", "units"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": "2.0" },
+    "course_id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+    "title": { "$ref": "#/$defs/localized" },
+    "cefr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "enum": ["A1", "A2", "B1", "B2", "C1", "C2"] },
+        "to": { "enum": ["A1", "A2", "B1", "B2", "C1", "C2"] }
+      }
+    },
+    "units": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "module_id of each unit, in teaching order (unit 1 first).",
+      "items": { "type": "string", "pattern": "^(A1|A2|B1|B2|C1|C2)_[A-Za-z0-9]+_[0-9]{2}$" }
+    }
+  },
+  "$defs": {
+    "localized": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["en", "ru"],
+      "properties": { "en": { "type": "string", "minLength": 1 }, "ru": { "type": "string", "minLength": 1 } }
+    }
+  }
+}

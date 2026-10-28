@@ -1,7 +1,7 @@
-import type { ContentBundle } from "@knight/content";
-import { MemoryOutboxStore, Outbox, validateStatement, type Statement } from "@knight/xapi";
+import type { ContentBundle } from "@moonbridge/content";
+import { MemoryOutboxStore, Outbox, validateStatement, type Statement } from "@moonbridge/xapi";
 import { beforeAll, describe, expect, it } from "vitest";
-import { buildPatrol, ConceptScheduler, errorStats, LearningEngine, MemoryJournal, Rating } from "../src/index.js";
+import { buildPatrol, ConceptScheduler, errorStats, LearningEngine, MemoryJournal, Rating, RepeatSchedule } from "../src/index.js";
 import { loadBundle } from "./fixtures.js";
 
 let bundle: ContentBundle;
@@ -73,18 +73,18 @@ describe("LearningEngine", () => {
     const st = queued[0]!;
     expect(validateStatement(st)).toEqual({ ok: true, statement: st });
     expect(st.id).toBe(r.attempt.attempt_id);
-    expect(st.actor.account).toEqual({ homePage: "https://knight.example.com", name: "player_test" });
+    expect(st.actor.account).toEqual({ homePage: "https://moonbridge.example.com", name: "player_test" });
     expect(st.verb.id).toBe("http://adlnet.gov/expapi/verbs/answered");
     expect(st.result).toMatchObject({
       success: false,
       response: "goed",
       duration: "PT8.4S",
       extensions: {
-        "https://knight.example.com/xapi/ext/error-type": "https://knight.example.com/xapi/errors/grammar/overgeneralization",
-        "https://knight.example.com/xapi/ext/correct-form": "went",
+        "https://moonbridge.example.com/xapi/ext/error-type": "https://moonbridge.example.com/xapi/errors/grammar/overgeneralization",
+        "https://moonbridge.example.com/xapi/ext/correct-form": "went",
       },
     });
-    expect(st.context?.contextActivities?.grouping?.[0]?.id).toBe("https://knight.example.com/xapi/concepts/past_simple.irregular");
+    expect(st.context?.contextActivities?.grouping?.[0]?.id).toBe("https://moonbridge.example.com/xapi/concepts/past_simple.irregular");
     expect(engine.answeredStatement(r.attempt)).toEqual(st);
   });
 
@@ -101,14 +101,15 @@ describe("LearningEngine", () => {
     expect(stats.byConcept["past_simple.irregular"]).toEqual({ attempts: 3, errors: 3 });
   });
 
-  it("passes the boss at pass_score and emits passed/failed with a score", async () => {
+  it("passes the unit check at pass_score and emits passed/failed with a score", async () => {
     const { engine, queued } = setup();
-    const win = await engine.moduleResult({ moduleId: "A1_PastSimple_01", correct: 8, total: 10, trackId: "main_a1" });
+    const win = await engine.moduleResult({ moduleId: "A1_PastSimple_01", correct: 8, total: 10, courseId: "fixture_a1" });
     const loss = await engine.moduleResult({ moduleId: "A1_PastSimple_01", correct: 7, total: 10 });
     expect(win.passed).toBe(true);
     expect(loss.passed).toBe(false);
     expect(queued.map((s) => s.verb.id)).toEqual(["http://adlnet.gov/expapi/verbs/passed", "http://adlnet.gov/expapi/verbs/failed"]);
     expect(queued[0]!.result?.score).toEqual({ raw: 8, min: 0, max: 10, scaled: 0.8 });
+    expect(queued[0]!.context?.contextActivities?.parent).toEqual([{ id: "https://moonbridge.example.com/xapi/courses/fixture_a1" }]);
     for (const s of queued) expect(validateStatement(s).ok).toBe(true);
   });
 
@@ -139,5 +140,28 @@ describe("buildPatrol", () => {
     expect(patrol[0]!.concept_id).toBe("past_simple.irregular"); // the failed concept is the weakest
     expect(patrol.map((t) => t.task_id)).not.toContain("A1_PastSimple_01_q3"); // seen 2 days ago, cooldown is 3
     expect(new Set(patrol.map((t) => t.concept_id))).toEqual(new Set(["past_simple.irregular", "verb_to_be.present_forms"]));
+  });
+});
+
+describe("LearningEngine with the 1/3/7 mode", () => {
+  it("feeds every answer into the repeat schedule", async () => {
+    let now = new Date("2026-11-09T09:00:00Z");
+    const repeats = new RepeatSchedule();
+    const engine = new LearningEngine({
+      bundle,
+      playerId: "player_test",
+      scheduler: new ConceptScheduler({ enableFuzz: false }),
+      repeats,
+      journal: new MemoryJournal(),
+      now: () => now,
+    });
+    const goed = await engine.submit({ taskId: "A1_PastSimple_01_q3", response: "goed", durationMs: 4000 });
+    expect(goed.repeat).toBe("started");
+    expect(repeats.due(new Date(now.getTime() + DAY)).map((i) => i.error_type)).toEqual(["grammar.overgeneralization"]);
+    now = new Date(now.getTime() + DAY);
+    expect((await engine.submit({ taskId: "A1_PastSimple_01_q3", response: "went", durationMs: 3000 })).repeat).toBe("advanced");
+    const listen = await engine.submit({ taskId: "A1_VerbToBe_01_q13", response: "We are tierd travellers", durationMs: 9000 });
+    expect(listen).toMatchObject({ outcome: { correct: true }, repeat: "none", rating: Rating.Hard });
+    expect(listen.statement.object.definition?.interactionType).toBe("fill-in");
   });
 });

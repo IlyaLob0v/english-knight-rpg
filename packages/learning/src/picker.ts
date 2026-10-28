@@ -1,4 +1,4 @@
-import type { ContentBundle, Task } from "@knight/content";
+import type { ContentBundle, Task } from "@moonbridge/content";
 import type { ConceptScheduler } from "./scheduler.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;

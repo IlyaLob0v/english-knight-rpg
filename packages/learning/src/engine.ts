@@ -1,9 +1,10 @@
-import type { ContentBundle, Module, Task } from "@knight/content";
-import { StatementBuilder, type ActivityDefinition, type Statement } from "@knight/xapi";
+import type { ContentBundle, Module, Task } from "@moonbridge/content";
+import { StatementBuilder, type ActivityDefinition, type Statement } from "@moonbridge/xapi";
 import type { Grade } from "ts-fsrs";
 import { checkAnswer, type CheckOutcome, type Response } from "./check.js";
 import { medianDurations, type Attempt, type AttemptJournal } from "./journal.js";
 import { deriveRating } from "./rating.js";
+import type { RepeatEvent, RepeatSchedule } from "./repeats.js";
 import type { ConceptReview, ConceptScheduler } from "./scheduler.js";
 
 /** Where statements go: the offline outbox in the client, the server outbox on the server. */
@@ -15,6 +16,8 @@ export interface EngineDeps {
   bundle: ContentBundle;
   playerId: string;
   scheduler: ConceptScheduler;
+  /** The 1/3/7 repetition mode; when given, every answer is fed into it. */
+  repeats?: RepeatSchedule;
   journal: AttemptJournal;
   queue?: StatementQueue;
   builder?: StatementBuilder;
@@ -36,6 +39,8 @@ export interface SubmitResult {
   outcome: CheckOutcome;
   rating: Grade;
   review: ConceptReview;
+  /** What the answer did to the 1/3/7 cycle of its concept; "none" without a RepeatSchedule. */
+  repeat: RepeatEvent;
   attempt: Attempt;
   statement: Statement;
 }
@@ -45,6 +50,10 @@ const INTERACTION: Record<Task["type"], NonNullable<ActivityDefinition["interact
   gap_fill: "fill-in",
   transform: "long-fill-in",
   order_words: "other",
+  listen_type: "fill-in",
+  translate_ru_en: "long-fill-in",
+  translate_en_ru: "choice",
+  find_error: "choice",
 };
 
 /**
@@ -83,9 +92,14 @@ export class LearningEngine {
       hintUsed,
       durationMs: i.durationMs,
       ...(median !== undefined ? { medianDurationMs: median } : {}),
-      ...(task.combat?.time_limit_s ? { timeLimitMs: task.combat.time_limit_s * 1000 } : {}),
+      ...(task.time_limit_s ? { timeLimitMs: task.time_limit_s * 1000 } : {}),
     });
     const review = this.d.scheduler.review(task.concept_id, rating, now);
+    const repeat =
+      this.d.repeats?.record(
+        { conceptId: task.concept_id, correct: outcome.correct, taskId: task.task_id, ...(outcome.errorType ? { errorType: outcome.errorType } : {}) },
+        now,
+      ) ?? "none";
 
     const attempt: Attempt = {
       attempt_id: crypto.randomUUID(),
@@ -109,7 +123,7 @@ export class LearningEngine {
 
     const statement = this.answeredStatement(attempt, task, module);
     await this.d.queue?.enqueue([statement]);
-    return { outcome, rating, review, attempt, statement };
+    return { outcome, rating, review, repeat, attempt, statement };
   }
 
   /** The xAPI statement for an attempt. Deterministic: the same attempt always gives the same statement. */
@@ -139,10 +153,10 @@ export class LearningEngine {
   }
 
   /**
-   * Records the module's boss fight: passed when the share of correct answers
+   * Records the unit check: passed when the share of correct answers
    * reaches the module's pass_score. This is the score that LTI AGS later sends to the LMS.
    */
-  async moduleResult(i: { moduleId: string; correct: number; total: number; trackId?: string; durationMs?: number }) {
+  async moduleResult(i: { moduleId: string; correct: number; total: number; courseId?: string; durationMs?: number }) {
     const module = this.modules.get(i.moduleId);
     if (!module) throw new Error(`unknown module "${i.moduleId}"`);
     const scaled = i.total > 0 ? i.correct / i.total : 0;
@@ -157,7 +171,7 @@ export class LearningEngine {
       verb: passed ? "passed" : "failed",
       scoreRaw: i.correct,
       scoreMax: i.total,
-      ...(i.trackId ? { trackId: i.trackId } : {}),
+      ...(i.courseId ? { courseId: i.courseId } : {}),
       ...(i.durationMs !== undefined ? { durationMs: i.durationMs } : {}),
     });
     await this.d.queue?.enqueue([statement]);

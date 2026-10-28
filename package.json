@@ -1,5 +1,5 @@
 {
-  "name": "english-knight-rpg",
+  "name": "moonbridge",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.28.0",
@@ -10,18 +10,14 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "content:validate": "pnpm --filter @knight/content validate",
-    "content:bundle": "pnpm --filter @knight/content bundle",
-    "dev:server": "pnpm --filter @knight/server dev",
-    "dev:server:lms": "pnpm --filter @knight/server dev:lms",
-    "dev:client": "pnpm --filter @knight/client dev",
-    "build:client": "pnpm --filter @knight/client build",
-    "client:no-content": "pnpm --filter @knight/client check:no-content",
-    "check": "pnpm typecheck && pnpm content:validate && pnpm client:no-content && pnpm test",
+    "content:validate": "pnpm --filter @moonbridge/content validate",
+    "content:bundle": "pnpm --filter @moonbridge/content bundle",
+    "dev:server": "pnpm --filter @moonbridge/server dev",
+    "dev:server:lms": "pnpm --filter @moonbridge/server dev:lms",
+    "check": "pnpm typecheck && pnpm content:validate && pnpm test",
     "lms:up": "sh docker/setup.sh",
     "lms:down": "docker compose down",
-    "lrs:errors": "pnpm --filter @knight/server lrs:errors",
-    "e2e:lms": "pnpm --filter @knight/e2e lms"
+    "lrs:errors": "pnpm --filter @moonbridge/server lrs:errors"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

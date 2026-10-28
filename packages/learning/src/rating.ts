@@ -14,10 +14,12 @@ export interface RatingInput {
 /**
  * Derives the FSRS grade from an attempt, so the player never rates themselves:
  * wrong → Again; typo, hint or slow → Hard; faster than the player's median → Easy;
- * otherwise Good. A typo counts as recalled with effort: the grammar was right.
+ * otherwise Good. A typo counts as recalled with effort, whether or not the task type accepts it:
+ * the grammar or the hearing was right.
  */
 export function deriveRating(i: RatingInput): Grade {
-  if (!i.outcome.correct) return i.outcome.match === "typo" ? Rating.Hard : Rating.Again;
+  if (i.outcome.match === "typo") return Rating.Hard;
+  if (!i.outcome.correct) return Rating.Again;
   if (i.hintUsed) return Rating.Hard;
   if (i.timeLimitMs !== undefined && i.durationMs > i.timeLimitMs * 0.75) return Rating.Hard;
   if (i.medianDurationMs !== undefined && i.durationMs > i.medianDurationMs * 1.5) return Rating.Hard;

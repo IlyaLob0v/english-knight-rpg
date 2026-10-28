@@ -1,0 +1,57 @@
+{
+  "$schema": "../../packages/content/schemas/module.schema.json",
+  "schema_version": "2.0",
+  "module_id": "A1_NiceToMeetYou_01",
+  "version": 2,
+  "cefr_level": "A1",
+  "title": {
+    "en": "Nice to meet you",
+    "ru": "Приятно познакомиться"
+  },
+  "description": {
+    "en": "Greetings, saying your name, I am / you are. A sample unit: Ksenia's lesson plan replaces it.",
+    "ru": "Приветствия, как назвать себя, I am / you are. Пример юнита: его заменит план урока Ксении."
+  },
+  "skill": "grammar",
+  "grammar_topic": "Verb to be: I am, you are",
+  "prerequisites": [],
+  "concepts": [
+    {
+      "concept_id": "greetings.meeting",
+      "label": "Hello / Nice to meet you / Nice to meet you too"
+    },
+    {
+      "concept_id": "to_be.i_am",
+      "label": "I am / I'm",
+      "explanation_ru": "О себе всегда I am, в разговоре сокращаем до I'm."
+    },
+    {
+      "concept_id": "to_be.you_are",
+      "label": "You are / Are you…?",
+      "explanation_ru": "С you всегда are; в вопросе are встаёт перед you."
+    },
+    {
+      "concept_id": "possessives.my_your",
+      "label": "my / your",
+      "explanation_ru": "My name — моё имя, your name — твоё/ваше имя."
+    }
+  ],
+  "mastery": {
+    "check_task_count": 6,
+    "pass_score": 0.8
+  },
+  "tasks": [
+    "A1_NiceToMeetYou_01_hello",
+    "A1_NiceToMeetYou_01_too",
+    "A1_NiceToMeetYou_01_i_am",
+    "A1_NiceToMeetYou_01_im_from",
+    "A1_NiceToMeetYou_01_whats_your_name",
+    "A1_NiceToMeetYou_01_are_you",
+    "A1_NiceToMeetYou_01_you_are",
+    "A1_NiceToMeetYou_01_my_name",
+    "A1_NiceToMeetYou_01_listen_kai",
+    "A1_NiceToMeetYou_01_translate_tired",
+    "A1_NiceToMeetYou_01_choose_translation",
+    "A1_NiceToMeetYou_01_find_error"
+  ]
+}

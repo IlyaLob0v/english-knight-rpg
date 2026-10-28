@@ -1,6 +1,6 @@
-import type { Task } from "@knight/content";
+import type { Task } from "@moonbridge/content";
 import { beforeAll, describe, expect, it } from "vitest";
-import { checkAnswer, deriveRating, editDistance, Rating, typoBudget } from "../src/index.js";
+import { checkAnswer, deriveRating, editDistance, isTypoOf, Rating, typoBudget } from "../src/index.js";
 import { loadBundle } from "./fixtures.js";
 
 let tasks: Record<string, Task>;
@@ -77,5 +77,65 @@ describe("deriveRating", () => {
     expect(deriveRating({ outcome: ok, hintUsed: false, durationMs: 3000, medianDurationMs: 5000 })).toBe(Rating.Easy);
     expect(deriveRating({ outcome: ok, hintUsed: false, durationMs: 5000, medianDurationMs: 5000 })).toBe(Rating.Good);
     expect(deriveRating({ outcome: ok, hintUsed: false, durationMs: 5000 })).toBe(Rating.Good);
+  });
+});
+
+describe("checkAnswer on the four Moonbridge types", () => {
+  it("listen_type accepts a typo as correct, but still logs it", () => {
+    const t = tasks["A1_VerbToBe_01_q13"]!; // We are tired travellers
+    expect(checkAnswer(t, "we are tired travellers")).toMatchObject({ correct: true, match: "accepted" });
+    expect(checkAnswer(t, "We're tired travelers")).toMatchObject({ correct: true, match: "typo", errorType: "spelling.typo" });
+    expect(checkAnswer(t, "We are tierd travellers")).toMatchObject({ correct: true, match: "typo" });
+    expect(deriveRating({ outcome: checkAnswer(t, "We are tierd travellers"), hintUsed: false, durationMs: 1000 })).toBe(Rating.Hard);
+  });
+
+  it("listen_type does not take a wrong short word or a missing word for a typo", () => {
+    const t = tasks["A1_VerbToBe_01_q13"]!;
+    expect(checkAnswer(t, "We is tired travellers")).toMatchObject({ correct: false, errorType: "grammar.agreement" });
+    expect(checkAnswer(t, "We our tired travellers")).toMatchObject({ correct: false, match: "unclassified" });
+    expect(checkAnswer(t, "We tired travellers")).toMatchObject({ correct: false, match: "unclassified" });
+  });
+
+  it("translate_ru_en accepts any listed variant, ignoring case and articles", () => {
+    const t = tasks["A1_VerbToBe_01_q14"]!; // Я не волшебник, я рыцарь.
+    expect(checkAnswer(t, "I am not a wizard, I am a knight.").correct).toBe(true);
+    expect(checkAnswer(t, "i'M NOT A WIZARD, I'M A KNIGHT").correct).toBe(true);
+    expect(checkAnswer(t, "I'm not wizard, I'm the knight")).toMatchObject({ correct: true, match: "accepted" });
+    expect(checkAnswer(t, "I not a wizard, I a knight")).toMatchObject({ correct: false, errorType: "grammar.auxiliary" });
+    expect(checkAnswer(t, "I'm not a wizzard, I'm a knight")).toMatchObject({ correct: false, match: "typo" });
+  });
+
+  it("ignore_articles can be switched off for a translation, and on for another type", () => {
+    const t = tasks["A1_VerbToBe_01_q14"]!;
+    const strict = { ...t, answer: { ...t.answer, ignore_articles: false } };
+    expect(checkAnswer(strict, "I'm not wizard, I'm knight").correct).toBe(false);
+    const listen = tasks["A1_VerbToBe_01_q13"]!;
+    expect(checkAnswer({ ...listen, answer: { ...listen.answer, ignore_articles: true } }, "We are the tired travellers").correct).toBe(true);
+  });
+
+  it("translate_en_ru compares option ids and shows the option text", () => {
+    const t = tasks["A1_VerbToBe_01_q15"]!;
+    expect(checkAnswer(t, "a")).toMatchObject({ correct: true, correctForm: "Ты из замка?" });
+    expect(checkAnswer(t, "b").errorType).toBe("grammar.tense_not_changed");
+    expect(checkAnswer(t, "A").correct).toBe(true);
+  });
+
+  it("find_error takes the token index and shows the correction", () => {
+    const t = tasks["A1_VerbToBe_01_q16"]!; // My friends is brave .
+    expect(checkAnswer(t, "2")).toMatchObject({ correct: true, correctForm: "are" });
+    expect(checkAnswer(t, "0")).toMatchObject({ correct: false, errorType: "comprehension.misread_prompt" });
+    expect(checkAnswer(t, "1")).toMatchObject({ correct: false, match: "unclassified" });
+    expect(checkAnswer(t, "12")).toMatchObject({ correct: false, match: "unclassified" });
+  });
+});
+
+describe("isTypoOf", () => {
+  it("compares word by word with the budget of each word", () => {
+    expect(isTypoOf("i'm here", "i'm here")).toBe(false);
+    expect(isTypoOf("travelers", "travellers")).toBe(true);
+    expect(isTypoOf("an apple", "a apple")).toBe(false);
+    expect(isTypoOf("hello wrold", "hello world")).toBe(true);
+    expect(isTypoOf("helo wrold", "hello world")).toBe(true);
+    expect(isTypoOf("hello", "hello world")).toBe(false);
   });
 });
