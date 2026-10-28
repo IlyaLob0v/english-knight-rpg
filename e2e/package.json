@@ -1,0 +1,14 @@
+{
+  "name": "@moonbridge/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end check on a phone screen: sign-in, Today, the Moonbridge map and the unit 1 episode with both branches",
+  "scripts": {
+    "moonbridge": "tsx moonbridge.e2e.ts"
+  },
+  "dependencies": {
+    "@moonbridge/content": "workspace:*",
+    "playwright": "1.63.0"
+  }
+}

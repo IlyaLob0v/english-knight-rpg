@@ -9,3 +9,6 @@ coverage/
 # Local LMS stack: generated keys and settings
 docker/state/
 
+
+# Playwright screenshots and traces
+e2e/.artifacts/

@@ -1,4 +1,6 @@
 import formbody from "@fastify/formbody";
+import { readFile } from "node:fs/promises";
+import { extname, resolve, sep } from "node:path";
 import { validateContent, type ContentBundle, type ContentSource } from "@moonbridge/content";
 import { buildBundle } from "@moonbridge/content/node";
 import { XapiProfile, Outbox, validateStatement, type Statement } from "@moonbridge/xapi";
@@ -38,6 +40,16 @@ const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
 /** A client clock this far ahead is wrong; its saves would block every honest save after it. */
 const MAX_CLOCK_SKEW_MS = 24 * 3600 * 1000;
 const GUEST_ID = /^guest_[0-9a-f]{8}$/;
+const MEDIA_TYPES: Record<string, string> = {
+  ".webp": "image/webp",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".svg": "image/svg+xml",
+  ".mp3": "audio/mpeg",
+  ".m4a": "audio/mp4",
+  ".ogg": "audio/ogg",
+};
 
 export async function buildApp(d: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({ logger: process.env.NODE_ENV !== "test", bodyLimit: 5 * 1024 * 1024 });
@@ -63,6 +75,21 @@ export async function buildApp(d: AppDeps): Promise<FastifyInstance> {
   });
 
   app.get("/content/manifest", async () => ({ content_hash: bundle.content_hash, built_at: bundle.built_at }));
+
+  /** Art and recordings referenced by the content (portraits, backgrounds, listen_type audio), from content/media. */
+  const mediaRoot = resolve(d.config.contentDir, "media");
+  app.get<{ Params: { "*": string } }>("/content/media/*", async (req, reply) => {
+    const rel = req.params["*"];
+    const type = MEDIA_TYPES[extname(rel).toLowerCase()];
+    const file = resolve(mediaRoot, rel);
+    if (!type || !file.startsWith(mediaRoot + sep)) return reply.code(404).send({ error: "not found" });
+    try {
+      const body = await readFile(file);
+      return reply.type(type).header("Cache-Control", "public, max-age=3600").send(body);
+    } catch {
+      return reply.code(404).send({ error: "not found" });
+    }
+  });
 
   /** Replaces the live content with a validated source tree. Invalid content never replaces a working bundle. */
   app.put<{ Body: ContentSource }>("/content/source", async (req, reply) => {

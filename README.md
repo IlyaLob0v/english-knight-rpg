@@ -16,18 +16,21 @@ content/                     живой курс (правишь это, а не
     characters.json          жители и их портреты по эмоциям
     places.json              места отеля и юнит, который открывает каждое
     episodes/*.json          эпизоды: реплики, задания с ветками на верный и неверный ответ
+  media/                     арт и записи: фоны мест, портреты, аудио для listen_type (шлюз раздаёт их по /content/media/…)
 packages/
   content/   @moonbridge/content   JSON Schema, типы, валидатор (ссылки, циклы, ветки эпизодов), сборка бандла
              test/fixtures/content замороженный набор из трёх юнитов для тестов движка и шлюза
   learning/  @moonbridge/learning  проверка ответа, классификатор ошибок, FSRS на концептах, режим 1/3/7, журнал попыток
   xapi/      @moonbridge/xapi      профиль moonbridge-v1, builder statement'ов, клиент LRS, outbox с повторами
 apps/
-  server/    @moonbridge/server    шлюз: Content API, приём xAPI → LRS, прогресс, Postgres (migrations/); LTI 1.3 заморожен
+  web/       @moonbridge/web       платформа в браузере (PWA): вход, «Сегодня»; раздел Moonbridge (карта отеля, плеер новеллы) грузится отдельно по /moonbridge
+  server/    @moonbridge/server    шлюз: Content API, медиа, приём xAPI → LRS, прогресс, Postgres (migrations/); LTI 1.3 заморожен
+e2e/         @moonbridge/e2e       Playwright на экране телефона 390 px: вход → Moonbridge → эпизод юнита 1 с ошибкой и без
 compose.yaml, docker/              локальный стенд: Postgres, LRS (Yet SQL LRS), Moodle 4.5 (заморожен)
 docs/adr/                          архитектурные решения
 ```
 
-Клиента сейчас нет: оболочка платформы и раздел Moonbridge строятся на неделе 3 плана.
+Пока нет арта, плеер рисует вместо портретов и фонов заглушки с именем. Арт подключается без правки кода: файл с путём из `characters.json` или `places.json` кладётся в `content/media/`.
 
 ## Команды
 
@@ -39,6 +42,8 @@ pnpm test               # все тесты
 pnpm typecheck
 pnpm check              # всё, что проверяет CI, одной командой
 pnpm dev:server         # шлюз на http://localhost:8787 (настройки: apps/server/.env.example)
+pnpm dev:web            # платформа на http://localhost:5173 (вместе со шлюзом)
+pnpm e2e                # собрать платформу и пройти эпизод в Chromium на экране 390 px (скриншоты в e2e/.artifacts/)
 
 pnpm lms:up             # стенд в Docker: Postgres, LRS, Moodle (docs/lms-setup.md)
 pnpm lrs:errors to_be.i_am   # ошибки по концепту за неделю из LRS

@@ -193,6 +193,17 @@ describe("Content API", () => {
     expect(again.statusCode).toBe(304);
   });
 
+  it("serves media from the content folder and nothing outside it", async () => {
+    const { app } = await harness();
+    const art = await app.inject({ url: "/content/media/places/reception.svg" });
+    expect(art.statusCode).toBe(200);
+    expect(art.headers["content-type"]).toBe("image/svg+xml");
+    expect(art.body).toContain("<svg");
+    expect((await app.inject({ url: "/content/media/places/missing.webp" })).statusCode).toBe(404);
+    expect((await app.inject({ url: "/content/media/..%2Fcourses%2Ffixture_a1.json" })).statusCode).toBe(404);
+    expect((await app.inject({ url: "/content/media/%2E%2E/%2E%2E/package.svg" })).statusCode).toBe(404);
+  });
+
   it("swaps in valid content and refuses invalid content", async () => {
     const { app } = await harness();
     const { source } = await loadContentDir(CONTENT_DIR);
