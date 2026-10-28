@@ -149,6 +149,81 @@
           { "match": ["me", "i"], "error_type": "grammar.agreement", "feedback": "Перед существительным нужно my: My name is Anna." }
         ]
       }
+    },
+    {
+      "task_id": "A1_NiceToMeetYou_01_listen_kai",
+      "concept_id": "to_be.i_am",
+      "type": "listen_type",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Kai is on the phone. Type what Kai says.",
+        "instruction_ru": "Послушайте и напечатайте, что говорит Кай.",
+        "audio": "audio/A1_NiceToMeetYou_01_listen_kai.mp3"
+      },
+      "answer": {
+        "accepted": ["Hi, I'm Kai. I'm from Moonbridge.", "Hi, I am Kai. I am from Moonbridge."],
+        "known_errors": [
+          { "match": ["Hi, I Kai. I from Moonbridge.", "Hi, I'm Kai. I from Moonbridge."], "error_type": "grammar.auxiliary", "feedback": "Am не пропадает: I'm Kai, I'm from Moonbridge." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NiceToMeetYou_01_translate_tired",
+      "concept_id": "to_be.i_am",
+      "type": "translate_ru_en",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Rocco asks how you are. Answer in English.",
+        "instruction_ru": "Переведите на английский.",
+        "source": "Я устал, но я рад быть здесь."
+      },
+      "answer": {
+        "accepted": ["I'm tired, but I'm happy to be here.", "I am tired, but I am happy to be here.", "I'm tired but I'm glad to be here.", "I am tired but I am glad to be here."],
+        "known_errors": [
+          { "match": ["I tired, but I happy to be here.", "I tired but I glad to be here."], "error_type": "grammar.auxiliary", "feedback": "В английском нужен глагол: I am tired, I am happy." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NiceToMeetYou_01_choose_translation",
+      "concept_id": "to_be.you_are",
+      "type": "translate_en_ru",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "Are you a guest here?",
+        "instruction_ru": "Выберите перевод.",
+        "source": "Are you a guest here?",
+        "options": [
+          { "id": "a", "text": "Вы здесь гость?" },
+          { "id": "b", "text": "Вы были здесь гостем?" },
+          { "id": "c", "text": "Где здесь гости?" }
+        ]
+      },
+      "answer": {
+        "accepted": ["a"],
+        "known_errors": [
+          { "match": ["b"], "error_type": "grammar.tense_not_changed", "feedback": "Are — настоящее время: «вы сейчас гость?»" },
+          { "match": ["c"], "error_type": "comprehension.misread_prompt", "feedback": "Are you…? — вопрос к собеседнику: «вы…?»" }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NiceToMeetYou_01_find_error",
+      "concept_id": "to_be.you_are",
+      "type": "find_error",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Pip wrote a note. Find the wrong word.",
+        "instruction_ru": "Нажмите на слово с ошибкой.",
+        "tokens": ["You", "is", "my", "new", "neighbour", "."]
+      },
+      "answer": {
+        "accepted": ["1"],
+        "correction": "are",
+        "known_errors": [
+          { "match": ["2"], "error_type": "comprehension.misread_prompt", "feedback": "My здесь верно: «мой сосед». Ошибка в is: с you нужно are." }
+        ]
+      }
     }
   ]
 }

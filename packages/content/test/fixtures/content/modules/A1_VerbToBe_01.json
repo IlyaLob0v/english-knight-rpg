@@ -2,7 +2,7 @@
   "$schema": "../../../../schemas/module.schema.json",
   "schema_version": "2.0",
   "module_id": "A1_VerbToBe_01",
-  "version": 1,
+  "version": 2,
   "cefr_level": "A1",
   "title": {
     "en": "Words at the Gate",
@@ -41,6 +41,10 @@
     "A1_VerbToBe_01_q9",
     "A1_VerbToBe_01_q10",
     "A1_VerbToBe_01_q11",
-    "A1_VerbToBe_01_q12"
+    "A1_VerbToBe_01_q12",
+    "A1_VerbToBe_01_q13",
+    "A1_VerbToBe_01_q14",
+    "A1_VerbToBe_01_q15",
+    "A1_VerbToBe_01_q16"
   ]
 }

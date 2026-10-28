@@ -2,7 +2,15 @@
 // keep these in sync when a schema changes (and bump schema_version).
 
 export type CefrLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
-export type TaskType = "choice" | "gap_fill" | "transform" | "order_words";
+export type TaskType =
+  | "choice"
+  | "gap_fill"
+  | "transform"
+  | "order_words"
+  | "listen_type"
+  | "translate_ru_en"
+  | "translate_en_ru"
+  | "find_error";
 
 export interface Localized {
   en: string;
@@ -47,12 +55,15 @@ export interface Task {
     instruction_ru?: string;
     hint?: string;
     source?: string;
+    audio?: string;
     options?: { id: string; text: string }[];
     tokens?: string[];
   };
   answer: {
     accepted: string[];
     case_sensitive?: boolean;
+    ignore_articles?: boolean;
+    correction?: string;
     known_errors?: KnownError[];
   };
   time_limit_s?: number;

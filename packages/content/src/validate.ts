@@ -250,7 +250,7 @@ function checkAnswer(
     }
   }
 
-  if (task.type === "choice") {
+  if (task.type === "choice" || task.type === "translate_en_ru") {
     const optionIds = new Set(task.presentation.options?.map((o) => o.id));
     if (optionIds.size !== task.presentation.options?.length) err(where, "answer.options", "option ids must be unique");
     for (const a of task.answer.accepted) {
@@ -270,6 +270,13 @@ function checkAnswer(
       if (tokenize(a).sort().join(" ") !== tokens) {
         err(where, "answer.tokens", `accepted "${a}" cannot be built from the given tokens`);
       }
+    }
+  }
+
+  if (task.type === "find_error") {
+    const count = task.presentation.tokens!.length;
+    for (const a of [...task.answer.accepted, ...known.flatMap((k) => k.match)]) {
+      if (!/^[0-9]+$/.test(a) || Number(a) >= count) err(where, "answer.token_ref", `"${a}" is not a token index (0–${count - 1})`);
     }
   }
 

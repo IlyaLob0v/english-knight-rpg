@@ -391,6 +391,129 @@
         ]
       },
       "time_limit_s": 40
+    },
+    {
+      "task_id": "A1_VerbToBe_01_q13",
+      "concept_id": "verb_to_be.present_forms",
+      "type": "listen_type",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Listen and type what the guard says.",
+        "audio": "audio/A1_VerbToBe_01_q13.mp3"
+      },
+      "answer": {
+        "accepted": [
+          "We are tired travellers",
+          "We're tired travellers"
+        ],
+        "known_errors": [
+          {
+            "match": [
+              "We is tired travellers"
+            ],
+            "error_type": "grammar.agreement",
+            "feedback": "С we всегда are"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_VerbToBe_01_q14",
+      "concept_id": "verb_to_be.negative",
+      "type": "translate_ru_en",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Translate into English.",
+        "source": "Я не волшебник, я рыцарь."
+      },
+      "answer": {
+        "accepted": [
+          "I am not a wizard, I am a knight",
+          "I'm not a wizard, I'm a knight"
+        ],
+        "known_errors": [
+          {
+            "match": [
+              "I not a wizard, I a knight"
+            ],
+            "error_type": "grammar.auxiliary",
+            "feedback": "Без am предложение не работает: I am not"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_VerbToBe_01_q15",
+      "concept_id": "verb_to_be.questions",
+      "type": "translate_en_ru",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "Choose the translation.",
+        "source": "Are you from the castle?",
+        "options": [
+          {
+            "id": "a",
+            "text": "Ты из замка?"
+          },
+          {
+            "id": "b",
+            "text": "Ты был в замке?"
+          },
+          {
+            "id": "c",
+            "text": "Ты идёшь в замок?"
+          }
+        ]
+      },
+      "answer": {
+        "accepted": [
+          "a"
+        ],
+        "known_errors": [
+          {
+            "match": [
+              "b"
+            ],
+            "error_type": "grammar.tense_not_changed"
+          },
+          {
+            "match": [
+              "c"
+            ],
+            "error_type": "lexis.wrong_word"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_VerbToBe_01_q16",
+      "concept_id": "verb_to_be.present_forms",
+      "type": "find_error",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Find the wrong word.",
+        "tokens": [
+          "My",
+          "friends",
+          "is",
+          "brave",
+          "."
+        ]
+      },
+      "answer": {
+        "accepted": [
+          "2"
+        ],
+        "correction": "are",
+        "known_errors": [
+          {
+            "match": [
+              "0"
+            ],
+            "error_type": "comprehension.misread_prompt"
+          }
+        ]
+      }
     }
   ]
 }

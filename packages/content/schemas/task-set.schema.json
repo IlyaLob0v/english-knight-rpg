@@ -20,7 +20,7 @@
       "properties": {
         "task_id": { "type": "string", "pattern": "^(A1|A2|B1|B2|C1|C2)_[A-Za-z0-9]+_[0-9]{2}_[a-z0-9_]+$" },
         "concept_id": { "type": "string", "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)+$" },
-        "type": { "enum": ["choice", "gap_fill", "transform", "order_words"] },
+        "type": { "enum": ["choice", "gap_fill", "transform", "order_words", "listen_type", "translate_ru_en", "translate_en_ru", "find_error"] },
         "difficulty": { "type": "integer", "minimum": 1, "maximum": 5 },
         "presentation": { "$ref": "#/$defs/presentation" },
         "answer": { "$ref": "#/$defs/answer" },
@@ -37,8 +37,29 @@
           "then": { "properties": { "presentation": { "type": "object", "required": ["tokens"] } } }
         },
         {
-          "if": { "properties": { "type": { "const": "transform" } } },
+          "if": { "properties": { "type": { "enum": ["transform", "translate_ru_en"] } } },
           "then": { "properties": { "presentation": { "type": "object", "required": ["source"] } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "listen_type" } } },
+          "then": { "properties": { "presentation": { "type": "object", "required": ["audio"] } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "translate_en_ru" } } },
+          "then": {
+            "properties": {
+              "presentation": { "type": "object", "required": ["source", "options"], "properties": { "options": { "type": "array", "minItems": 3, "maxItems": 3 } } }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "find_error" } } },
+          "then": {
+            "properties": {
+              "presentation": { "type": "object", "required": ["tokens"] },
+              "answer": { "type": "object", "required": ["correction"], "properties": { "accepted": { "type": "array", "items": { "type": "string", "pattern": "^[0-9]+$" } } } }
+            }
+          }
         }
       ]
     },
@@ -50,7 +71,8 @@
         "prompt": { "type": "string", "minLength": 1 },
         "instruction_ru": { "type": "string", "minLength": 1 },
         "hint": { "type": "string", "minLength": 1 },
-        "source": { "type": "string", "minLength": 1, "description": "transform: the sentence to transform" },
+        "source": { "type": "string", "minLength": 1, "description": "transform: the sentence to transform; translate_*: the sentence to translate" },
+        "audio": { "type": "string", "pattern": "^[A-Za-z0-9_/.-]+\\.(mp3|m4a|ogg)$", "description": "listen_type: the recording the player types out" },
         "options": {
           "type": "array",
           "minItems": 2,
@@ -73,9 +95,14 @@
           "type": "array",
           "minItems": 1,
           "items": { "type": "string", "minLength": 1 },
-          "description": "choice: option ids; other types: accepted strings, compared after normalization"
+          "description": "choice, translate_en_ru: option ids; find_error: the index of the wrong token, from 0; other types: accepted strings, compared after normalization"
         },
         "case_sensitive": { "type": "boolean", "default": false },
+        "ignore_articles": {
+          "type": "boolean",
+          "description": "Accept an answer that differs from an accepted one only in a/an/the. Defaults to true for translate_ru_en and false otherwise."
+        },
+        "correction": { "type": "string", "minLength": 1, "description": "find_error: the right word, shown after the answer" },
         "known_errors": {
           "type": "array",
           "items": {

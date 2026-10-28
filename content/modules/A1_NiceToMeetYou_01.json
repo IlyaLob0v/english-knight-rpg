@@ -2,7 +2,7 @@
   "$schema": "../../packages/content/schemas/module.schema.json",
   "schema_version": "2.0",
   "module_id": "A1_NiceToMeetYou_01",
-  "version": 1,
+  "version": 2,
   "cefr_level": "A1",
   "title": {
     "en": "Nice to meet you",
@@ -48,6 +48,10 @@
     "A1_NiceToMeetYou_01_whats_your_name",
     "A1_NiceToMeetYou_01_are_you",
     "A1_NiceToMeetYou_01_you_are",
-    "A1_NiceToMeetYou_01_my_name"
+    "A1_NiceToMeetYou_01_my_name",
+    "A1_NiceToMeetYou_01_listen_kai",
+    "A1_NiceToMeetYou_01_translate_tired",
+    "A1_NiceToMeetYou_01_choose_translation",
+    "A1_NiceToMeetYou_01_find_error"
   ]
 }

@@ -15,6 +15,8 @@ const fixture = () => load(FIXTURE_DIR);
 
 const codes = (src: ContentSource) => validateContent(src).issues.filter((i) => i.severity === "error").map((i) => i.code);
 const episode = (src: ContentSource, id: string) => src.episodes!.find((e) => (e.data as any).episode_id === id)!.data as any;
+const taskOfType = (src: ContentSource, type: string) =>
+  src.taskSets.flatMap((f) => (f.data as any).tasks).find((t: any) => t.type === type) as any;
 
 describe("the content in /content", () => {
   it("is valid", async () => {
@@ -31,10 +33,12 @@ describe("the content in /content", () => {
 });
 
 describe("the fixture content", () => {
-  it("has every task type in every unit", async () => {
+  it("has the four classic task types in every unit, and all eight in VerbToBe", async () => {
     const result = validateContent(await fixture());
     for (const set of result.content!.taskSets) {
-      expect(new Set(set.tasks.map((t) => t.type))).toEqual(new Set(["choice", "gap_fill", "transform", "order_words"]));
+      const types = new Set(set.tasks.map((t) => t.type));
+      for (const t of ["choice", "gap_fill", "transform", "order_words"]) expect(types).toContain(t);
+      if (set.module_id === "A1_VerbToBe_01") expect(types.size).toBe(8);
     }
   });
 
@@ -111,6 +115,29 @@ describe("validator catches", () => {
     const task = (src.taskSets[0]!.data as any).tasks.find((t: any) => t.type === "order_words");
     task.answer.accepted = ["Something else entirely"];
     expect(codes(src)).toContain("answer.tokens");
+  });
+
+  it("a find_error answer that points past the last token", async () => {
+    const src = await fixture();
+    const task = taskOfType(src, "find_error");
+    task.answer.accepted = ["9"];
+    expect(codes(src)).toEqual(["answer.token_ref"]);
+  });
+
+  it("a translate_en_ru task without exactly three options, or with a missing option id", async () => {
+    const src = await fixture();
+    const task = taskOfType(src, "translate_en_ru");
+    task.presentation.options.pop();
+    expect(validateContent(src).issues.some((i) => i.code === "schema" && i.message.includes("options"))).toBe(true);
+    const again = await fixture();
+    taskOfType(again, "translate_en_ru").answer.accepted = ["z"];
+    expect(codes(again)).toContain("answer.option_ref");
+  });
+
+  it("a listen_type task without a recording", async () => {
+    const src = await fixture();
+    delete taskOfType(src, "listen_type").presentation.audio;
+    expect(validateContent(src).issues.some((i) => i.code === "schema" && i.message.includes("audio"))).toBe(true);
   });
 
   it("schema violations, with the offending field", async () => {
