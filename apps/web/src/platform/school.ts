@@ -95,6 +95,7 @@ export function openHomework(d: Dashboard): HomeworkView[] {
 }
 
 function homeworkStatus(h: HomeworkView, now: Date): string {
+  if (h.submission?.review) return `Оценка ${h.submission.review.grade}`;
   if (h.submission) return `Сдано: ${h.submission.file_name}`;
   if (!h.needs_file) return "Делается на уроке или в Moonbridge";
   if (h.due_at && new Date(h.due_at) < now) return "Срок прошёл, но сдать ещё можно";
@@ -156,16 +157,28 @@ export async function renderHomework(root: HTMLElement, homeworkId: string, d: H
   if (!dash || !h) return d.navigate("/");
   const now = d.now ?? new Date();
   const group = dash.groups.find((g) => g.group_id === h.group_id);
-  const status = el("p", { class: "hw-status", "data-status": h.submission ? "submitted" : "open" }, homeworkStatus(h, now));
+  // The grade has its own note below; the status line says which file it is for.
+  const status = el("p", { class: "hw-status", "data-status": h.submission ? "submitted" : "open" }, h.submission?.review ? `Сдано: ${h.submission.file_name}` : homeworkStatus(h, now));
   const parts: HTMLElement[] = [
     el("header", { class: "section-head" }, el("a", { href: "/", "data-link": "", class: "back" }, "← Сегодня")),
     el("h1", {}, h.title),
     el("p", { class: "muted" }, [group?.name, h.due_at ? `сдать до ${when(new Date(h.due_at), now)}` : undefined].filter(Boolean).join(" · ")),
     ...(h.description ? [el("p", { class: "hw-description" }, h.description)] : []),
     status,
+    ...(h.submission?.review ? [reviewNote(h.submission.review)] : []),
   ];
   if (h.needs_file) parts.push(uploader(h, status, d));
   root.replaceChildren(el("div", { class: "card homework-page", "data-homework-page": h.homework_id }, ...parts));
+}
+
+/** The teacher's grade and comment on the hand-in. */
+function reviewNote(r: { grade: number; comment: string }): HTMLElement {
+  return el(
+    "div",
+    { class: "review-note", "data-grade": String(r.grade) },
+    el("p", {}, el("b", {}, `Оценка: ${r.grade}`)),
+    ...(r.comment ? [el("p", { class: "hw-description" }, r.comment)] : []),
+  );
 }
 
 function uploader(h: HomeworkView, status: HTMLElement, d: HomeworkPageDeps): HTMLElement {

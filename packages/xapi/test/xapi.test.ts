@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { conceptErrors, isoDuration, XapiProfile, LrsClient, MemoryOutboxStore, Outbox, StatementBuilder, validateStatement, type SendOutcome, type Statement } from "../src/index.js";
+import { attemptOf, conceptErrors, isoDuration, parseIsoDuration, XapiProfile, LrsClient, MemoryOutboxStore, Outbox, StatementBuilder, validateStatement, type SendOutcome, type Statement } from "../src/index.js";
 
 const builder = new StatementBuilder(new XapiProfile("https://moonbridge.example.com/"));
 const make = (n: number): Statement[] =>
@@ -172,5 +172,50 @@ describe("conceptErrors", () => {
       expect.objectContaining({ statementId: wrong.id, taskId: "A1_PastSimple_01_q3", response: "goed", errorType: "grammar.overgeneralization", correctForm: "went" }),
       expect.objectContaining({ statementId: odd.id, response: "wented", errorType: "unclassified" }),
     ]);
+  });
+});
+
+describe("attemptOf", () => {
+  const profile = new XapiProfile("https://moonbridge.test");
+  const b = new StatementBuilder(profile);
+  const common = {
+    playerId: "player_1",
+    taskId: "A1_T1",
+    moduleId: "A1_Unit_01",
+    conceptId: "to_be.i_am",
+    interactionType: "fill-in" as const,
+    correctResponses: ["am"],
+    hintUsed: false,
+    durationMs: 12_340,
+    timestamp: new Date("2026-12-01T10:00:00Z"),
+  };
+
+  it("reads a wrong answer back with its error type, try and mode", () => {
+    const s = b.answered({ ...common, response: "is", success: false, errorType: "grammar.agreement", attempt: 2, gameContext: { mode: "lost_and_found" } });
+    expect(attemptOf(s, profile)).toEqual({
+      statementId: s.id,
+      playerId: "player_1",
+      answeredAt: new Date("2026-12-01T10:00:00Z"),
+      taskId: "A1_T1",
+      moduleId: "A1_Unit_01",
+      conceptId: "to_be.i_am",
+      success: false,
+      errorType: "grammar.agreement",
+      attemptNo: 2,
+      durationMs: 12_340,
+      mode: "lost_and_found",
+    });
+  });
+
+  it("marks an unforeseen wrong answer unclassified and ignores other verbs", () => {
+    const wrong = attemptOf(b.answered({ ...common, response: "x", success: false, attempt: 1 }), profile)!;
+    expect(wrong.errorType).toBe("unclassified");
+    const right = attemptOf(b.answered({ ...common, response: "am", success: true, attempt: 1 }), profile)!;
+    expect(right.errorType).toBeUndefined();
+    expect(attemptOf(b.launched({ playerId: "p", courseId: "c" }), profile)).toBeUndefined();
+  });
+
+  it("parses the durations the builder writes", () => {
+    for (const ms of [0, 990, 61_000, 3_725_500]) expect(parseIsoDuration(isoDuration(ms))).toBe(ms);
   });
 });

@@ -1,3 +1,4 @@
+import type { Attempt } from "@moonbridge/xapi";
 import type { Sql } from "../db/sql.js";
 
 export type Role = "student" | "teacher";
@@ -48,6 +49,27 @@ export interface Submission {
   mime: string;
   size: number;
   submittedAt: Date;
+  review: Review | null;
+}
+
+export interface Review {
+  grade: number;
+  comment: string;
+  reviewedAt: Date;
+}
+
+/** One student's answers in a time window, summed up for the teacher. */
+export interface PracticeSummary {
+  /** Moscow dates (YYYY-MM-DD) with at least one answer. */
+  days: string[];
+  answers: number;
+  /** First tries only: a second try after feedback says little about what the student knows. */
+  firstTries: number;
+  firstTriesRight: number;
+  minutes: number;
+  errors: { errorType: string; count: number }[];
+  modes: { mode: string; answers: number; right: number }[];
+  lastAnsweredAt: Date | null;
 }
 
 export class LoginTakenError extends Error {
@@ -63,7 +85,8 @@ function newId(prefix: string, length = 16): string {
 const ACCOUNT = "a.account_id, a.role, a.name, a.login, a.player_id";
 const GROUP = "g.group_id, g.teacher_id, t.name AS teacher_name, g.name, g.call_url, g.schedule";
 const HOMEWORK = "h.homework_id, h.group_id, h.title, h.description, h.due_at, h.needs_file, h.created_at";
-const SUBMISSION = "s.submission_id, s.homework_id, s.account_id, a.name AS student_name, s.file_key, s.file_name, s.mime, s.size, s.submitted_at";
+const SUBMISSION =
+  "s.submission_id, s.homework_id, s.account_id, a.name AS student_name, s.file_key, s.file_name, s.mime, s.size, s.submitted_at, s.grade, s.teacher_comment, s.reviewed_at";
 
 interface AccountRow {
   account_id: string;
@@ -99,6 +122,9 @@ interface SubmissionRow {
   mime: string;
   size: string | number;
   submitted_at: Date;
+  grade: number | null;
+  teacher_comment: string | null;
+  reviewed_at: Date | null;
 }
 
 const account = (r: AccountRow): Account => ({ accountId: r.account_id, role: r.role, name: r.name, login: r.login, playerId: r.player_id });
@@ -129,6 +155,7 @@ const submission = (r: SubmissionRow): Submission => ({
   mime: r.mime,
   size: Number(r.size),
   submittedAt: r.submitted_at,
+  review: r.reviewed_at && r.grade !== null ? { grade: r.grade, comment: r.teacher_comment ?? "", reviewedAt: r.reviewed_at } : null,
 });
 
 /**
@@ -215,6 +242,15 @@ export class SchoolStore {
     return rows.map(account);
   }
 
+  /** Whether the teacher runs a group the student is in. */
+  async teaches(teacherId: string, accountId: string): Promise<boolean> {
+    const { rows } = await this.sql.query(
+      "SELECT 1 FROM group_members m JOIN school_groups g ON g.group_id = m.group_id WHERE g.teacher_id = $1 AND m.account_id = $2 LIMIT 1",
+      [teacherId, accountId],
+    );
+    return rows.length > 0;
+  }
+
   async isMember(groupId: string, accountId: string): Promise<boolean> {
     const { rows } = await this.sql.query("SELECT 1 FROM group_members WHERE group_id = $1 AND account_id = $2", [groupId, accountId]);
     return rows.length > 0;
@@ -269,7 +305,8 @@ export class SchoolStore {
     const { rows } = await this.sql.query<{ submission_id: string }>(
       `INSERT INTO submissions (submission_id, homework_id, account_id, file_key, file_name, mime, size) VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (homework_id, account_id) DO UPDATE SET
-         file_key = EXCLUDED.file_key, file_name = EXCLUDED.file_name, mime = EXCLUDED.mime, size = EXCLUDED.size, submitted_at = now()
+         file_key = EXCLUDED.file_key, file_name = EXCLUDED.file_name, mime = EXCLUDED.mime, size = EXCLUDED.size, submitted_at = now(),
+         grade = NULL, teacher_comment = NULL, reviewed_at = NULL
        RETURNING submission_id`,
       [newId("sub", 12), s.homeworkId, s.accountId, s.fileKey, s.fileName, s.mime, s.size],
     );
@@ -293,5 +330,78 @@ export class SchoolStore {
       [homeworkIds, accountId ?? null],
     );
     return rows.map(submission);
+  }
+
+  /** Hand-ins in the teacher's groups that wait for a review, the oldest first. */
+  async reviewQueue(teacherId: string): Promise<Submission[]> {
+    const { rows } = await this.sql.query<SubmissionRow>(
+      `SELECT ${SUBMISSION} FROM submissions s JOIN accounts a ON a.account_id = s.account_id
+       JOIN homework h ON h.homework_id = s.homework_id JOIN school_groups g ON g.group_id = h.group_id
+       WHERE g.teacher_id = $1 AND s.reviewed_at IS NULL ORDER BY s.submitted_at`,
+      [teacherId],
+    );
+    return rows.map(submission);
+  }
+
+  async review(submissionId: string, grade: number, comment: string, at: Date): Promise<Submission | undefined> {
+    await this.sql.query("UPDATE submissions SET grade = $2, teacher_comment = $3, reviewed_at = $4 WHERE submission_id = $1", [submissionId, grade, comment, at]);
+    return this.submission(submissionId);
+  }
+
+  async setPassword(accountId: string, passwordHash: string): Promise<void> {
+    await this.sql.query("UPDATE accounts SET password_hash = $2 WHERE account_id = $1", [accountId, passwordHash]);
+  }
+
+  /** Keeps the answers from the xAPI intake; a statement already kept (a resend from the offline queue) is skipped. */
+  async recordAttempts(attempts: Attempt[]): Promise<void> {
+    if (!attempts.length) return;
+    await this.sql.query(
+      `INSERT INTO attempts (statement_id, player_id, answered_at, task_id, module_id, concept_id, success, error_type, attempt_no, duration_ms, mode)
+       SELECT (a->>'statementId')::uuid, a->>'playerId', (a->>'answeredAt')::timestamptz, a->>'taskId', a->>'moduleId', a->>'conceptId',
+              (a->>'success')::boolean, a->>'errorType', (a->>'attemptNo')::int, (a->>'durationMs')::int, a->>'mode'
+       FROM jsonb_array_elements($1::jsonb) AS t(a)
+       ON CONFLICT (statement_id) DO NOTHING`,
+      [JSON.stringify(attempts)],
+    );
+  }
+
+  /** A player's practice between `from` and `to`, with days counted in Moscow time. */
+  async practice(playerId: string, from: Date, to: Date): Promise<PracticeSummary> {
+    const window = [playerId, from, to];
+    const totals = await this.sql.query<{ answers: number; first_tries: number; first_right: number; ms: string | number | null; last_at: Date | null }>(
+      `SELECT count(*)::int AS answers,
+              count(*) FILTER (WHERE attempt_no = 1)::int AS first_tries,
+              count(*) FILTER (WHERE attempt_no = 1 AND success)::int AS first_right,
+              sum(duration_ms) AS ms, max(answered_at) AS last_at
+       FROM attempts WHERE player_id = $1 AND answered_at >= $2 AND answered_at < $3`,
+      window,
+    );
+    const days = await this.sql.query<{ day: string }>(
+      `SELECT DISTINCT to_char(answered_at AT TIME ZONE 'Europe/Moscow', 'YYYY-MM-DD') AS day
+       FROM attempts WHERE player_id = $1 AND answered_at >= $2 AND answered_at < $3 ORDER BY day`,
+      window,
+    );
+    const errors = await this.sql.query<{ error_type: string; n: number }>(
+      `SELECT error_type, count(*)::int AS n FROM attempts
+       WHERE player_id = $1 AND answered_at >= $2 AND answered_at < $3 AND NOT success AND error_type IS NOT NULL
+       GROUP BY error_type ORDER BY n DESC, error_type LIMIT 5`,
+      window,
+    );
+    const modes = await this.sql.query<{ mode: string; n: number; right: number }>(
+      `SELECT COALESCE(mode, 'other') AS mode, count(*)::int AS n, count(*) FILTER (WHERE success)::int AS right
+       FROM attempts WHERE player_id = $1 AND answered_at >= $2 AND answered_at < $3 GROUP BY 1 ORDER BY 2 DESC`,
+      window,
+    );
+    const t = totals.rows[0]!;
+    return {
+      days: days.rows.map((r) => r.day),
+      answers: t.answers,
+      firstTries: t.first_tries,
+      firstTriesRight: t.first_right,
+      minutes: Math.round(Number(t.ms ?? 0) / 60_000),
+      errors: errors.rows.map((r) => ({ errorType: r.error_type, count: r.n })),
+      modes: modes.rows.map((r) => ({ mode: r.mode, answers: r.n, right: r.right })),
+      lastAnsweredAt: t.last_at,
+    };
   }
 }

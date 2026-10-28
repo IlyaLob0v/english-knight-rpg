@@ -1,3 +1,4 @@
+import { parseIsoDuration } from "./builder.js";
 import { ADL_VERBS, type XapiProfile } from "./profile.js";
 import type { LrsClient } from "./lrs-client.js";
 import type { Statement } from "./types.js";
@@ -50,4 +51,56 @@ export async function conceptErrors(
         timestamp: s.timestamp ?? "",
       };
     });
+}
+
+/** One answer, as the gateway keeps it for the teacher's cabinet. */
+export interface Attempt {
+  statementId: string;
+  playerId: string;
+  answeredAt: Date;
+  taskId: string;
+  moduleId: string;
+  conceptId: string;
+  success: boolean;
+  /** Undefined for a right answer; "unclassified" for a wrong one nobody foresaw. */
+  errorType?: string;
+  /** 1 for the first try at the task in a session. */
+  attemptNo: number;
+  durationMs: number;
+  /** Where it was answered: moonbridge_episode, lost_and_found, guest_of_the_day… */
+  mode?: string;
+}
+
+function lastSegment(iri: string | undefined, prefix: string): string | undefined {
+  return iri?.startsWith(prefix) ? decodeURIComponent(iri.slice(prefix.length)) : undefined;
+}
+
+/** Reads an `answered` statement of this profile back into an attempt; undefined for any other statement. */
+export function attemptOf(s: Statement, profile: XapiProfile): Attempt | undefined {
+  if (s.verb.id !== ADL_VERBS.answered || !s.result) return undefined;
+  const base = profile.baseIri;
+  const taskId = lastSegment(s.object.id, `${base}/xapi/tasks/`);
+  const moduleId = lastSegment(s.context?.contextActivities?.parent?.[0]?.id, `${base}/xapi/modules/`);
+  const conceptId = lastSegment(s.context?.contextActivities?.grouping?.[0]?.id, `${base}/xapi/concepts/`);
+  if (!taskId || !moduleId || !conceptId || typeof s.result.success !== "boolean") return undefined;
+  const ext = s.result.extensions ?? {};
+  const errorIri = ext[profile.ext("error-type")];
+  const errorPrefix = `${base}/xapi/errors/`;
+  const game = s.context?.extensions?.[profile.ext("game-context")] as { mode?: unknown } | undefined;
+  const attempt = Number(ext[profile.ext("attempt")]);
+  return {
+    statementId: s.id,
+    playerId: s.actor.account.name,
+    answeredAt: new Date(s.timestamp ?? Date.now()),
+    taskId,
+    moduleId,
+    conceptId,
+    success: s.result.success,
+    ...(!s.result.success
+      ? { errorType: typeof errorIri === "string" && errorIri.startsWith(errorPrefix) ? errorIri.slice(errorPrefix.length).split("/").map(decodeURIComponent).join(".") : "unclassified" }
+      : {}),
+    attemptNo: Number.isInteger(attempt) && attempt > 0 ? attempt : 1,
+    durationMs: parseIsoDuration(s.result.duration) ?? 0,
+    ...(typeof game?.mode === "string" ? { mode: game.mode } : {}),
+  };
 }
