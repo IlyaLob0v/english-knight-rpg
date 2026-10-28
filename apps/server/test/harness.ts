@@ -67,7 +67,7 @@ export interface HarnessStores {
 }
 
 export async function harness(stores: HarnessStores = {}): Promise<Harness> {
-  const config = loadConfig({ NODE_ENV: "test", ADMIN_TOKEN: "admin-secret", PUBLIC_URL: "https://moonbridge.test", CLIENT_URL: "https://app.moonbridge.test/" });
+  const config = loadConfig({ NODE_ENV: "test", CONTENT_DIR, ADMIN_TOKEN: "admin-secret", PUBLIC_URL: "https://moonbridge.test", CLIENT_URL: "https://app.moonbridge.test/" });
   const sent: Statement[] = [];
   const outbox = new Outbox(stores.outboxStore ?? new MemoryOutboxStore(), { send: async (b) => (sent.push(...b), { kind: "sent", ids: b.map((s) => s.id) }) });
   const agsCalls: Harness["agsCalls"] = [];

@@ -1,0 +1,21 @@
+{
+  "name": "@moonbridge/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The school platform in the browser (PWA): sign-in, Today, and the Moonbridge section loaded on demand",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@moonbridge/content": "workspace:*",
+    "@moonbridge/learning": "workspace:*",
+    "@moonbridge/xapi": "workspace:*"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.6",
+    "vite": "^7.3.7"
+  }
+}

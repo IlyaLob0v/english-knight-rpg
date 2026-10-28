@@ -24,3 +24,14 @@ jobs:
         run: pnpm content:bundle
       - name: Test
         run: pnpm test
+      - name: Build the platform
+        run: pnpm build:web
+      - name: Browser for Playwright
+        run: pnpm --filter @moonbridge/e2e exec playwright install --with-deps chromium
+      - name: End-to-end on a phone screen
+        run: pnpm --filter @moonbridge/e2e moonbridge
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-screenshots
+          path: e2e/.artifacts/
