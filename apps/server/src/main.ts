@@ -3,7 +3,7 @@ import { buildBundle, loadContentDir } from "@moonbridge/content/node";
 import { LrsClient, MemoryOutboxStore, Outbox, type StatementSink } from "@moonbridge/xapi";
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
-import { connectPostgres, migrate } from "./db/sql.js";
+import { connectPostgres, memoryPostgres, migrate } from "./db/sql.js";
 import { PgGradeStore, PgIdentityStore, PgLoginStates, PgOutboxStore, PgProgressStore, PgScoreStore } from "./db/stores.js";
 import { GradeSync, MemoryGradeStore } from "./grades.js";
 import { AgsClient } from "./lti/ags.js";
@@ -13,6 +13,8 @@ import { LoginStateStore } from "./lti/launch.js";
 import { PlatformRegistry } from "./lti/platforms.js";
 import { MemoryProgressStore } from "./progress.js";
 import { MemoryScoreStore } from "./scores.js";
+import { DiskFileStore } from "./school/files.js";
+import { SchoolStore } from "./school/store.js";
 import { SessionTokens } from "./session.js";
 
 const config = loadConfig();
@@ -58,6 +60,10 @@ const platforms = new PlatformRegistry(config.lti.platforms);
 let log: (e: unknown, message: string) => void = (e, m) => console.error(m, e);
 const grades = new GradeSync(stores.grades, platforms, new AgsClient(toolKeys), {}, (e, m) => log(e, m));
 
+// The school's records need SQL; without DATABASE_URL they live in an in-process Postgres (PGlite).
+const schoolDb = db ?? (await memoryPostgres());
+if (!db) await migrate(schoolDb);
+
 const app = await buildApp({
   config,
   bundle: buildBundle(result.content),
@@ -70,6 +76,7 @@ const app = await buildApp({
   scores: stores.scores,
   progress: stores.progress,
   toolKeys,
+  school: { store: new SchoolStore(schoolDb), files: new DiskFileStore(config.uploadDir) },
 });
 log = (e, m) => app.log.warn({ err: e }, m);
 
@@ -79,11 +86,11 @@ const timers = [
 ];
 app.addHook("onClose", async () => {
   timers.forEach(clearInterval);
-  await db?.close();
+  await schoolDb.close();
 });
 for (const signal of ["SIGINT", "SIGTERM"] as const) process.once(signal, () => void app.close());
 
-if (!db) app.log.warn("DATABASE_URL is not set: sessions, grades and the xAPI queue live in memory and are lost on restart");
+if (!db) app.log.warn("DATABASE_URL is not set: accounts, sessions, grades and the xAPI queue live in memory and are lost on restart");
 if (!config.lrs) app.log.warn("LRS_ENDPOINT is not set: xAPI statements are queued but not delivered");
 if (!config.lti.privateKeyPem) app.log.warn("LTI_PRIVATE_KEY is not set: using an ephemeral tool key (dev only)");
 app.log.info(`LTI platforms: ${config.lti.platforms.map((p) => `${p.issuer} (${p.clientId})`).join(", ") || "none"}`);

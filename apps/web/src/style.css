@@ -102,3 +102,43 @@ button.play { width: 100%; }
 
 .episode-end .unlocked { color: var(--good); font-weight: 600; }
 .hotel, .episode-end { margin: 16px; }
+
+/* Platform: forms, school and teacher */
+.form-error { color: var(--bad); min-height: 0; margin: 4px 0; }
+.form-error:empty { display: none; }
+a.button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 11px 16px; border-radius: 10px; border: 1px solid var(--edge); text-decoration: none; color: var(--ink); background: #2c2838; }
+a.button.primary { background: var(--accent); border-color: var(--accent); color: #1d1406; font-weight: 600; }
+.call { margin-top: 8px; width: 100%; }
+.sign-out { display: block; margin: 18px auto 0; }
+h3 { font-size: 15px; margin: 16px 0 6px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+textarea.answer { font-size: 16px; resize: vertical; }
+.homework-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 8px; }
+.homework-list a { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--edge); background: #1f1b2b; color: var(--ink); text-decoration: none; }
+.homework-list a.done .hw-title::before { content: "✓ "; color: var(--good); }
+.hw-title { font-weight: 600; overflow-wrap: anywhere; }
+.hw-description { white-space: pre-wrap; overflow-wrap: anywhere; }
+.hw-status[data-status="submitted"] { color: var(--good); }
+.uploader { display: grid; gap: 8px; margin-top: 12px; }
+.file-pick { position: relative; display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 11px 16px; border-radius: 10px; border: 1px dashed var(--edge); background: #2c2838; cursor: pointer; }
+.file-pick:focus-within { outline: 2px solid var(--accent); }
+.file-input { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
+.uploader progress { width: 100%; height: 10px; accent-color: var(--accent); }
+.teacher .group { overflow-wrap: anywhere; }
+.invite { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 8px 0; }
+.invite p { grid-column: 1 / -1; }
+.invite-url { font-size: 14px; }
+.hw-item { border-top: 1px solid var(--edge); padding: 8px 0; }
+.hw-item .link { display: block; text-align: left; }
+details.new-homework { margin-top: 10px; }
+details.new-homework summary { cursor: pointer; color: var(--accent); padding: 8px 0; }
+.hw-form label, .group-form label { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.hw-form label.check { flex-direction: row; align-items: center; gap: 10px; }
+.days { border: 1px solid var(--edge); border-radius: 10px; display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 8px 12px; margin: 8px 0; }
+.days .day { flex-direction: row; align-items: center; gap: 6px; margin: 0; }
+.group-form .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.teacher-card { border-color: var(--accent); }
+
+/* Moonbridge: the board in the lobby */
+.lobby-board { background: #2a2219; border-color: #8a6a3d; }
+.board-note { display: block; margin: 6px 0; padding: 8px 10px; background: #f1ead8; color: #2a2219; border-radius: 4px; text-decoration: none; transform: rotate(-0.6deg); }
+.board-note:nth-child(odd) { transform: rotate(0.5deg); }

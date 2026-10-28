@@ -1,0 +1,297 @@
+import type { Sql } from "../db/sql.js";
+
+export type Role = "student" | "teacher";
+
+export interface Account {
+  accountId: string;
+  role: Role;
+  name: string;
+  login: string;
+  playerId: string;
+}
+
+/** A weekly lesson slot, Moscow time. */
+export interface Slot {
+  /** 1 = Monday … 7 = Sunday. */
+  weekday: number;
+  /** "HH:MM". */
+  time: string;
+  minutes: number;
+}
+
+export interface Group {
+  groupId: string;
+  teacherId: string;
+  teacherName: string;
+  name: string;
+  callUrl: string | null;
+  schedule: Slot[];
+}
+
+export interface Homework {
+  homeworkId: string;
+  groupId: string;
+  title: string;
+  description: string;
+  dueAt: Date | null;
+  needsFile: boolean;
+  createdAt: Date;
+}
+
+export interface Submission {
+  submissionId: string;
+  homeworkId: string;
+  accountId: string;
+  studentName: string;
+  fileKey: string;
+  fileName: string;
+  mime: string;
+  size: number;
+  submittedAt: Date;
+}
+
+export class LoginTakenError extends Error {
+  constructor() {
+    super("login taken");
+  }
+}
+
+function newId(prefix: string, length = 16): string {
+  return `${prefix}_${crypto.randomUUID().replaceAll("-", "").slice(0, length)}`;
+}
+
+const ACCOUNT = "a.account_id, a.role, a.name, a.login, a.player_id";
+const GROUP = "g.group_id, g.teacher_id, t.name AS teacher_name, g.name, g.call_url, g.schedule";
+const HOMEWORK = "h.homework_id, h.group_id, h.title, h.description, h.due_at, h.needs_file, h.created_at";
+const SUBMISSION = "s.submission_id, s.homework_id, s.account_id, a.name AS student_name, s.file_key, s.file_name, s.mime, s.size, s.submitted_at";
+
+interface AccountRow {
+  account_id: string;
+  role: Role;
+  name: string;
+  login: string;
+  player_id: string;
+}
+interface GroupRow {
+  group_id: string;
+  teacher_id: string;
+  teacher_name: string;
+  name: string;
+  call_url: string | null;
+  schedule: Slot[];
+}
+interface HomeworkRow {
+  homework_id: string;
+  group_id: string;
+  title: string;
+  description: string;
+  due_at: Date | null;
+  needs_file: boolean;
+  created_at: Date;
+}
+interface SubmissionRow {
+  submission_id: string;
+  homework_id: string;
+  account_id: string;
+  student_name: string;
+  file_key: string;
+  file_name: string;
+  mime: string;
+  size: string | number;
+  submitted_at: Date;
+}
+
+const account = (r: AccountRow): Account => ({ accountId: r.account_id, role: r.role, name: r.name, login: r.login, playerId: r.player_id });
+const group = (r: GroupRow): Group => ({
+  groupId: r.group_id,
+  teacherId: r.teacher_id,
+  teacherName: r.teacher_name,
+  name: r.name,
+  callUrl: r.call_url,
+  schedule: r.schedule,
+});
+const homework = (r: HomeworkRow): Homework => ({
+  homeworkId: r.homework_id,
+  groupId: r.group_id,
+  title: r.title,
+  description: r.description,
+  dueAt: r.due_at,
+  needsFile: r.needs_file,
+  createdAt: r.created_at,
+});
+const submission = (r: SubmissionRow): Submission => ({
+  submissionId: r.submission_id,
+  homeworkId: r.homework_id,
+  accountId: r.account_id,
+  studentName: r.student_name,
+  fileKey: r.file_key,
+  fileName: r.file_name,
+  mime: r.mime,
+  size: Number(r.size),
+  submittedAt: r.submitted_at,
+});
+
+/**
+ * The school's records in Postgres (schema: migrations/002_school.sql). Access rules live
+ * in the routes; the store only reads and writes.
+ */
+export class SchoolStore {
+  constructor(private readonly sql: Sql) {}
+
+  async createAccount(a: { role: Role; name: string; login: string; passwordHash: string; playerId?: string }): Promise<Account> {
+    const { rows } = await this.sql.query<AccountRow>(
+      `INSERT INTO accounts (account_id, role, name, login, password_hash, player_id) VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (login) DO NOTHING
+       RETURNING account_id, role, name, login, player_id`,
+      [newId("acc"), a.role, a.name, a.login, a.passwordHash, a.playerId ?? newId("player")],
+    );
+    if (!rows[0]) throw new LoginTakenError();
+    return account(rows[0]);
+  }
+
+  async accountByLogin(login: string): Promise<(Account & { passwordHash: string }) | undefined> {
+    const { rows } = await this.sql.query<AccountRow & { password_hash: string }>(`SELECT ${ACCOUNT}, a.password_hash FROM accounts a WHERE a.login = $1`, [login]);
+    return rows[0] && { ...account(rows[0]), passwordHash: rows[0].password_hash };
+  }
+
+  async accountById(accountId: string): Promise<Account | undefined> {
+    const { rows } = await this.sql.query<AccountRow>(`SELECT ${ACCOUNT} FROM accounts a WHERE a.account_id = $1`, [accountId]);
+    return rows[0] && account(rows[0]);
+  }
+
+  /** Whether a player id already belongs to an account (a guest's progress can be adopted only once). */
+  async playerTaken(playerId: string): Promise<boolean> {
+    const { rows } = await this.sql.query("SELECT 1 FROM accounts WHERE player_id = $1", [playerId]);
+    return rows.length > 0;
+  }
+
+  async createGroup(g: { teacherId: string; name: string; callUrl: string | null; schedule: Slot[] }): Promise<Group> {
+    const groupId = newId("grp", 12);
+    await this.sql.query("INSERT INTO school_groups (group_id, teacher_id, name, call_url, schedule) VALUES ($1, $2, $3, $4, $5::jsonb)", [
+      groupId,
+      g.teacherId,
+      g.name,
+      g.callUrl,
+      JSON.stringify(g.schedule),
+    ]);
+    return (await this.group(groupId))!;
+  }
+
+  async updateGroup(groupId: string, g: { name?: string; callUrl?: string | null; schedule?: Slot[] }): Promise<Group | undefined> {
+    await this.sql.query(
+      `UPDATE school_groups SET
+         name = COALESCE($2, name),
+         call_url = CASE WHEN $3::boolean THEN $4 ELSE call_url END,
+         schedule = COALESCE($5::jsonb, schedule)
+       WHERE group_id = $1`,
+      [groupId, g.name ?? null, g.callUrl !== undefined, g.callUrl ?? null, g.schedule ? JSON.stringify(g.schedule) : null],
+    );
+    return this.group(groupId);
+  }
+
+  async group(groupId: string): Promise<Group | undefined> {
+    const { rows } = await this.sql.query<GroupRow>(`SELECT ${GROUP} FROM school_groups g JOIN accounts t ON t.account_id = g.teacher_id WHERE g.group_id = $1`, [groupId]);
+    return rows[0] && group(rows[0]);
+  }
+
+  /** A teacher's own groups, or the groups a student is in. */
+  async groupsOf(a: Account): Promise<Group[]> {
+    const { rows } =
+      a.role === "teacher"
+        ? await this.sql.query<GroupRow>(`SELECT ${GROUP} FROM school_groups g JOIN accounts t ON t.account_id = g.teacher_id WHERE g.teacher_id = $1 ORDER BY g.created_at`, [a.accountId])
+        : await this.sql.query<GroupRow>(
+            `SELECT ${GROUP} FROM school_groups g JOIN accounts t ON t.account_id = g.teacher_id
+             JOIN group_members m ON m.group_id = g.group_id WHERE m.account_id = $1 ORDER BY m.joined_at`,
+            [a.accountId],
+          );
+    return rows.map(group);
+  }
+
+  async members(groupId: string): Promise<Account[]> {
+    const { rows } = await this.sql.query<AccountRow>(
+      `SELECT ${ACCOUNT} FROM accounts a JOIN group_members m ON m.account_id = a.account_id WHERE m.group_id = $1 ORDER BY m.joined_at`,
+      [groupId],
+    );
+    return rows.map(account);
+  }
+
+  async isMember(groupId: string, accountId: string): Promise<boolean> {
+    const { rows } = await this.sql.query("SELECT 1 FROM group_members WHERE group_id = $1 AND account_id = $2", [groupId, accountId]);
+    return rows.length > 0;
+  }
+
+  async join(groupId: string, accountId: string): Promise<void> {
+    await this.sql.query("INSERT INTO group_members (group_id, account_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [groupId, accountId]);
+  }
+
+  async createInvite(groupId: string, expiresAt: Date): Promise<{ code: string; expiresAt: Date }> {
+    // 12 characters from a 32-letter alphabet: 60 bits, short enough to read out over a call.
+    const alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
+    const bytes = crypto.getRandomValues(new Uint8Array(12));
+    const code = [...bytes].map((b) => alphabet[b % alphabet.length]).join("");
+    await this.sql.query("INSERT INTO invites (code, group_id, expires_at) VALUES ($1, $2, $3)", [code, groupId, expiresAt]);
+    return { code, expiresAt };
+  }
+
+  /** The group an invitation leads to, while it is valid. */
+  async invite(code: string, now: Date): Promise<Group | undefined> {
+    const { rows } = await this.sql.query<{ group_id: string }>("SELECT group_id FROM invites WHERE code = $1 AND expires_at > $2", [code, now]);
+    return rows[0] && this.group(rows[0].group_id);
+  }
+
+  async createHomework(h: { groupId: string; title: string; description: string; dueAt: Date | null; needsFile: boolean }): Promise<Homework> {
+    const { rows } = await this.sql.query<HomeworkRow>(
+      `INSERT INTO homework (homework_id, group_id, title, description, due_at, needs_file) VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING homework_id, group_id, title, description, due_at, needs_file, created_at`,
+      [newId("hw", 12), h.groupId, h.title, h.description, h.dueAt, h.needsFile],
+    );
+    return homework(rows[0]!);
+  }
+
+  async homework(homeworkId: string): Promise<Homework | undefined> {
+    const { rows } = await this.sql.query<HomeworkRow>(`SELECT ${HOMEWORK} FROM homework h WHERE h.homework_id = $1`, [homeworkId]);
+    return rows[0] && homework(rows[0]);
+  }
+
+  /** Homework of these groups, the nearest deadline first, then the newest. */
+  async homeworkOf(groupIds: string[]): Promise<Homework[]> {
+    if (!groupIds.length) return [];
+    const { rows } = await this.sql.query<HomeworkRow>(
+      `SELECT ${HOMEWORK} FROM homework h WHERE h.group_id = ANY($1::text[]) ORDER BY h.due_at ASC NULLS LAST, h.created_at DESC`,
+      [groupIds],
+    );
+    return rows.map(homework);
+  }
+
+  /** Records a hand-in; returns the file key it replaced, if any, so the old file can go. */
+  async submit(s: { homeworkId: string; accountId: string; fileKey: string; fileName: string; mime: string; size: number }): Promise<{ submission: Submission; replacedKey?: string }> {
+    const before = await this.sql.query<{ file_key: string }>("SELECT file_key FROM submissions WHERE homework_id = $1 AND account_id = $2", [s.homeworkId, s.accountId]);
+    const { rows } = await this.sql.query<{ submission_id: string }>(
+      `INSERT INTO submissions (submission_id, homework_id, account_id, file_key, file_name, mime, size) VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (homework_id, account_id) DO UPDATE SET
+         file_key = EXCLUDED.file_key, file_name = EXCLUDED.file_name, mime = EXCLUDED.mime, size = EXCLUDED.size, submitted_at = now()
+       RETURNING submission_id`,
+      [newId("sub", 12), s.homeworkId, s.accountId, s.fileKey, s.fileName, s.mime, s.size],
+    );
+    const replaced = before.rows[0]?.file_key;
+    return { submission: (await this.submission(rows[0]!.submission_id))!, ...(replaced && replaced !== s.fileKey ? { replacedKey: replaced } : {}) };
+  }
+
+  async submission(submissionId: string): Promise<Submission | undefined> {
+    const { rows } = await this.sql.query<SubmissionRow>(`SELECT ${SUBMISSION} FROM submissions s JOIN accounts a ON a.account_id = s.account_id WHERE s.submission_id = $1`, [
+      submissionId,
+    ]);
+    return rows[0] && submission(rows[0]);
+  }
+
+  /** Hand-ins for these homework items; only the given student's when accountId is set. */
+  async submissionsFor(homeworkIds: string[], accountId?: string): Promise<Submission[]> {
+    if (!homeworkIds.length) return [];
+    const { rows } = await this.sql.query<SubmissionRow>(
+      `SELECT ${SUBMISSION} FROM submissions s JOIN accounts a ON a.account_id = s.account_id
+       WHERE s.homework_id = ANY($1::text[]) AND ($2::text IS NULL OR s.account_id = $2) ORDER BY s.submitted_at`,
+      [homeworkIds, accountId ?? null],
+    );
+    return rows.map(submission);
+  }
+}

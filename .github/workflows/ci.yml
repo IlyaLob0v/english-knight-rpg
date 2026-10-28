@@ -30,6 +30,8 @@ jobs:
         run: pnpm --filter @moonbridge/e2e exec playwright install --with-deps chromium
       - name: End-to-end on a phone screen
         run: pnpm --filter @moonbridge/e2e moonbridge
+      - name: End-to-end, the school (teacher, invitation, homework file, second phone)
+        run: pnpm --filter @moonbridge/e2e school
       - uses: actions/upload-artifact@v4
         if: always()
         with:

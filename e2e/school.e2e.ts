@@ -1,0 +1,183 @@
+// End-to-end check of the school around Moonbridge, on phone screens (390 × 844):
+//
+//   the admin creates a teacher → the teacher signs in, creates a group with its schedule
+//   and call link, makes an invitation link and sets homework handed in as a file →
+//   a student opens the link on phone 1, creates an account, sees the next lesson and the
+//   homework on Today and on the board in the Moonbridge lobby, uploads a voice memo
+//   (a file over 50 MB is refused first) and plays the unit 1 episode →
+//   on phone 2 the student signs in with the same login: the episode is still done and the
+//   homework still handed in → the teacher sees the hand-in and downloads the file.
+//
+// Run: pnpm e2e:school        (HEADED=1 to watch it)
+import { mkdir, mkdtemp, readFile, rm, truncate, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { chromium, type Page } from "playwright";
+import { ARTIFACTS, check, finishEpisode, GATEWAY, noSideScroll, PHONE, startServers, step, stopServers, WEB } from "./lib.js";
+
+const EPISODE = "A1_NiceToMeetYou_01_check_in";
+const ADMIN = "e2e-admin-token";
+const STUDENT = { name: "Анна", login: "anna.k", password: "moon-123" };
+
+/** A Moscow date-time for an <input type="datetime-local">, `days` from now at 18:00. */
+function moscowInput(days: number): string {
+  const d = new Date(Date.now() + 3 * 3600_000 + days * 24 * 3600_000);
+  return `${d.toISOString().slice(0, 10)}T18:00`;
+}
+
+async function main(): Promise<void> {
+  await mkdir(ARTIFACTS, { recursive: true });
+  const uploads = await mkdtemp(join(tmpdir(), "moonbridge-e2e-uploads-"));
+  step("Gateway and the built platform");
+  const bundle = await startServers({ ADMIN_TOKEN: ADMIN, UPLOAD_DIR: uploads });
+  const episode = bundle.moonbridge!.episodes.find((e) => e.episode_id === EPISODE)!;
+
+  const created = await fetch(`${GATEWAY}/admin/teachers`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${ADMIN}`, "content-type": "application/json" },
+    body: JSON.stringify({ name: "Ксения", login: "ksenia", password: "teach-123" }),
+  });
+  check(created.status === 201, "the admin creates the teacher's account");
+
+  const browser = await chromium.launch({ headless: !process.env.HEADED });
+  const errors: string[] = [];
+  const open = async (): Promise<Page> => {
+    const context = await browser.newContext(PHONE);
+    const page = await context.newPage();
+    page.on("pageerror", (e) => errors.push(e.message));
+    return page;
+  };
+  let page = await open();
+
+  try {
+    step("The teacher: group, invitation, homework");
+    const teacher = page;
+    await teacher.goto(WEB);
+    const signInForm = teacher.locator('[data-form="sign-in"]');
+    await signInForm.getByLabel("Логин").fill("ksenia");
+    await signInForm.getByLabel("Пароль").fill("teach-123");
+    await signInForm.getByRole("button", { name: "Войти" }).click();
+    await teacher.locator('[data-section="teacher"]').click();
+    const groupForm = teacher.locator('[data-form="group"]');
+    await groupForm.getByLabel("Название").fill("A1 вечер");
+    await groupForm.getByLabel("Ссылка на звонок").fill("https://telemost.yandex.ru/j/12345");
+    await groupForm.getByLabel("Вт").check();
+    await groupForm.getByLabel("Чт").check();
+    await groupForm.getByLabel("Время").fill("18:30");
+    await groupForm.getByRole("button", { name: "Создать группу" }).click();
+    const group = teacher.locator(".group").first();
+    await group.waitFor();
+    check(/вт и чт в 18:30/.test(await group.innerText()), "the group shows its schedule");
+    await group.getByRole("button", { name: "Пригласить ученика" }).click();
+    const inviteUrl = await group.locator(".invite-url").inputValue();
+    check(inviteUrl.startsWith(`${WEB}/join/`), `the invitation link is ${inviteUrl}`);
+    await group.locator("summary", { hasText: "Новая домашка" }).click();
+    const hwForm = group.locator('[data-form="homework"]');
+    await hwForm.getByLabel("Название").fill("Расскажи о себе");
+    await hwForm.getByLabel("Что сделать").fill("Запиши на диктофон 30 секунд: как тебя зовут и откуда ты.");
+    await hwForm.getByLabel("Срок").fill(moscowInput(3));
+    await hwForm.getByRole("button", { name: "Задать" }).click();
+    await teacher.locator(".hw-item").first().waitFor();
+    check(/сдали 0 из 0/.test(await teacher.locator(".hw-item").first().innerText()), "the homework waits for hand-ins");
+    check(await noSideScroll(teacher), "the teacher's cabinet fits a 390 px screen");
+    await teacher.screenshot({ path: `${ARTIFACTS}teacher.png`, fullPage: true });
+
+    step("Phone 1: the student joins by the link");
+    page = await open();
+    await page.goto(inviteUrl);
+    const joinForm = page.locator('[data-form="join"]');
+    check(/A1 вечер/.test(await joinForm.innerText()) && /Ксения/.test(await joinForm.innerText()), "the link names the group and the teacher");
+    await page.screenshot({ path: `${ARTIFACTS}join.png` });
+    await joinForm.getByLabel("Имя").fill(STUDENT.name);
+    await joinForm.getByLabel("Логин").fill(STUDENT.login);
+    await joinForm.getByLabel("Пароль").fill(STUDENT.password);
+    await joinForm.getByRole("button", { name: "Вступить в группу" }).click();
+    await page.getByRole("heading", { name: /Анна/ }).waitFor();
+    check(page.url() === `${WEB}/`, "the student lands on Today");
+    const lesson = page.locator('[data-card="lesson"]');
+    check(/A1 вечер/.test(await lesson.innerText()), "Today shows the next lesson");
+    check((await lesson.locator("a.call").getAttribute("href")) === "https://telemost.yandex.ru/j/12345", "with the call link");
+    check(/Расскажи о себе/.test(await page.locator('[data-card="homework"]').innerText()), "and the homework");
+    check(await noSideScroll(page), "Today fits a 390 px screen");
+    await page.screenshot({ path: `${ARTIFACTS}student-today.png`, fullPage: true });
+
+    step("The board in the Moonbridge lobby");
+    await page.locator("[data-section=moonbridge]").click();
+    const board = page.locator("[data-board]");
+    await board.waitFor();
+    check(/Урок/.test(await board.locator("[data-board-lesson]").innerText()), "the board shows the next lesson");
+    check(await board.locator("[data-board-homework]").count() === 1, "and the homework still to hand in");
+    await page.screenshot({ path: `${ARTIFACTS}lobby-board.png` });
+    await board.locator("[data-board-homework]").click();
+
+    step("Handing in a file from the phone");
+    const hwPage = page.locator("[data-homework-page]");
+    await hwPage.waitFor();
+    const big = join(uploads, "big.m4a");
+    await writeFile(big, "");
+    await truncate(big, 51 * 1024 * 1024);
+    await hwPage.getByLabel("Файл").setInputFiles(big);
+    check(/больше 50 МБ/.test(await hwPage.locator(".form-error").innerText()), "a file over 50 MB is refused on the phone");
+    check(await hwPage.getByRole("button", { name: "Сдать" }).isDisabled(), "and cannot be sent");
+    const memo = Buffer.alloc(2 * 1024 * 1024, 1);
+    await hwPage.getByLabel("Файл").setInputFiles({ name: "Запись 1.m4a", mimeType: "audio/mp4", buffer: memo });
+    await hwPage.getByRole("button", { name: "Сдать" }).click();
+    await hwPage.locator('[data-status="submitted"]').waitFor();
+    check(/Сдано: Запись 1\.m4a, 2,0 МБ/.test(await hwPage.locator(".hw-status").innerText()), "the voice memo is handed in");
+    check(await noSideScroll(page), "the homework page fits a 390 px screen");
+    await page.screenshot({ path: `${ARTIFACTS}homework.png` });
+
+    step("Phone 1: the unit 1 episode");
+    await page.goto(`${WEB}/moonbridge`);
+    check(/Вся домашка сдана/.test(await page.locator("[data-board]").innerText()), "the board knows the homework is in");
+    await page.locator(".play-next").click();
+    const saved = page.waitForResponse((r) => r.url().endsWith("/api/progress/snapshot") && r.request().method() === "PUT" && r.ok(), { timeout: 30_000 });
+    await finishEpisode(page, bundle, episode);
+    await saved;
+    check(true, "the episode is done and the progress is backed up");
+
+    step("Phone 2: the same student signs in");
+    page = await open();
+    await page.goto(WEB);
+    const again = page.locator('[data-form="sign-in"]');
+    await again.getByLabel("Логин").fill(STUDENT.login.toUpperCase());
+    await again.getByLabel("Пароль").fill(STUDENT.password);
+    await again.getByRole("button", { name: "Войти" }).click();
+    await page.getByRole("heading", { name: /Анна/ }).waitFor();
+    check(/Сдано: Запись 1\.m4a/.test(await page.locator('[data-card="homework"]').innerText()), "the hand-in is there");
+    await page.locator("[data-section=moonbridge]").click();
+    await page.locator(".hotel-map").waitFor();
+    check(await page.locator(`.episode.done[data-episode="${EPISODE}"]`).isVisible(), "the episode is still done on the new phone");
+
+    step("The teacher sees the hand-in");
+    await teacher.reload();
+    const item = teacher.locator(".hw-item").first();
+    await item.waitFor();
+    check(/сдали 1 из 1/.test(await item.innerText()), "one of one handed in");
+    const download = teacher.waitForEvent("download");
+    const served = teacher.waitForResponse((r) => r.url().includes("/file?t="));
+    await item.locator("[data-submission]").click();
+    const file = await download;
+    // Headless Chromium ignores non-ASCII file names in Content-Disposition, so the name is
+    // checked in the header that real browsers read, and the bytes in the downloaded file.
+    const disposition = (await served).headers()["content-disposition"] ?? "";
+    check(disposition.includes(`filename*=UTF-8''${encodeURIComponent("Запись 1.m4a")}`), "the file goes out under the student's name");
+    check((await readFile((await file.path())!)).equals(memo), "the teacher downloads exactly the student's recording");
+    await teacher.screenshot({ path: `${ARTIFACTS}teacher-hand-in.png`, fullPage: true });
+    check(errors.length === 0, `no page errors${errors.length ? `: ${errors.join("; ")}` : ""}`);
+  } catch (e) {
+    await page.screenshot({ path: `${ARTIFACTS}school-failure.png` }).catch(() => undefined);
+    throw e;
+  } finally {
+    await browser.close();
+    await rm(uploads, { recursive: true, force: true });
+  }
+  console.log("\nAll good.");
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exitCode = 1;
+  })
+  .finally(stopServers);

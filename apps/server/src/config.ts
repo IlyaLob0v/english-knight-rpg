@@ -13,6 +13,10 @@ export interface ServerConfig {
   xapiBaseIri: string;
   sessionSecret: string;
   sessionTtlSeconds: number;
+  /** Signed-in students and teachers stay signed in this long on a device. */
+  accountSessionTtlSeconds: number;
+  /** Where homework files are stored. */
+  uploadDir: string;
   /** Bearer token for content uploads. Unset = uploads disabled. */
   adminToken?: string;
   /** Allows POST /session/guest for local play without an LMS. Never in production. */
@@ -58,6 +62,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     xapiBaseIri: env.XAPI_BASE_IRI ?? "https://moonbridge.example.com",
     sessionSecret,
     sessionTtlSeconds: Number(env.SESSION_TTL_SECONDS ?? 8 * 3600),
+    accountSessionTtlSeconds: Number(env.ACCOUNT_SESSION_TTL_SECONDS ?? 30 * 24 * 3600),
+    uploadDir: env.UPLOAD_DIR ?? new URL("../../../data/uploads", import.meta.url).pathname,
     ...(env.ADMIN_TOKEN ? { adminToken: env.ADMIN_TOKEN } : {}),
     allowGuest: !production && env.ALLOW_GUEST !== "false",
     ...(env.LRS_ENDPOINT

@@ -12,3 +12,4 @@ docker/state/
 
 # Playwright screenshots and traces
 e2e/.artifacts/
+data/

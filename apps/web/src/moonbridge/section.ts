@@ -1,4 +1,6 @@
 import type { Learner } from "../core/learner.js";
+import type { Dashboard } from "../net/api.js";
+import { nextLesson, openHomework, when } from "../platform/school.js";
 import type { KeyValue } from "../storage/idb.js";
 import { el } from "../ui/dom.js";
 import { streakOf, todaysShift, type ShiftPlan } from "./daily.js";
@@ -15,6 +17,8 @@ export interface SectionDeps {
   kv: KeyValue;
   mediaBase: string;
   navigate: (path: string) => void;
+  /** The student's school, for the board in the lobby. */
+  board?: Dashboard;
 }
 
 const KEY = "moonbridge";
@@ -66,6 +70,32 @@ export async function mountMoonbridge(root: HTMLElement, path: string, d: Sectio
 
 function hasWork(plan: ShiftPlan): boolean {
   return plan.lostAndFound.length > 0 || plan.guest !== undefined;
+}
+
+/**
+ * The board in the lobby: the same next lesson and homework as on the platform's Today,
+ * so a student who opens the hotel first still sees what is due. Homework opens on the platform.
+ */
+function lobbyBoard(board: Dashboard | undefined, d: SectionDeps): HTMLElement | undefined {
+  if (!board?.groups.length) return undefined;
+  const now = new Date(d.learner.now());
+  const lesson = nextLesson(board.groups, now);
+  const open = openHomework(board);
+  return el(
+    "div",
+    { class: "card lobby-board", "data-board": "" },
+    el("h2", {}, "Доска в лобби"),
+    el("p", { "data-board-lesson": "" }, lesson ? (lesson.start <= now ? `Урок идёт сейчас: ${lesson.group.name}` : `Урок ${when(lesson.start, now)}`) : "Уроков в расписании нет"),
+    ...(open.length
+      ? open.map((h) =>
+          el(
+            "a",
+            { href: `/homework/${h.homework_id}`, "data-link": "", class: "board-note", "data-board-homework": h.homework_id },
+            `${h.title}${h.due_at ? `, до ${when(new Date(h.due_at), now)}` : ""}`,
+          ),
+        )
+      : [el("p", { class: "muted" }, "Вся домашка сдана.")]),
+  );
 }
 
 /** The daily shift card on top of the map: what is waiting today, or who comes tomorrow. */
@@ -136,7 +166,7 @@ function renderMap(root: HTMLElement, view: HotelView, plan: ShiftPlan | undefin
       "div",
       { class: "hotel" },
       el("header", { class: "section-head" }, el("a", { href: "/", "data-link": "", class: "back" }, "← Платформа"), el("h1", {}, "Hotel Hello")),
-      ...[shiftCard(plan, state, today, d)].filter((x): x is HTMLElement => x !== undefined),
+      ...[lobbyBoard(d.board, d), shiftCard(plan, state, today, d)].filter((x): x is HTMLElement => x !== undefined),
       play,
       map,
     ),

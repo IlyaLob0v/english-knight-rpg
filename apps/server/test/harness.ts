@@ -4,7 +4,7 @@ import { MemoryOutboxStore, Outbox, type OutboxStore, type Statement } from "@mo
 import type { FastifyInstance } from "fastify";
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type CryptoKey, type JWK } from "jose";
 import { afterEach, beforeAll, expect } from "vitest";
-import { buildApp } from "../src/app.js";
+import { buildApp, type AppDeps } from "../src/app.js";
 import { loadConfig } from "../src/config.js";
 import { GradeSync, MemoryGradeStore, type GradeStore } from "../src/grades.js";
 import { AgsClient } from "../src/lti/ags.js";
@@ -64,6 +64,7 @@ export interface HarnessStores {
   progress?: ProgressStore;
   outboxStore?: OutboxStore;
   gradeStore?: GradeStore;
+  school?: AppDeps["school"];
 }
 
 export async function harness(stores: HarnessStores = {}): Promise<Harness> {
@@ -93,6 +94,7 @@ export async function harness(stores: HarnessStores = {}): Promise<Harness> {
     scores: stores.scores ?? new MemoryScoreStore(),
     progress: stores.progress ?? new MemoryProgressStore(),
     toolKeys,
+    ...(stores.school ? { school: stores.school } : {}),
   });
   current = app;
   return { app, sent, agsCalls, outbox, grades, lms };

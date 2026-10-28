@@ -3,9 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "End-to-end check on a phone screen: sign-in, Today, the Moonbridge map and the unit 1 episode with both branches",
+  "description": "End-to-end checks on phone screens: Moonbridge (episode, daily shift, offline) and the school (teacher, invitation, homework file, second phone)",
   "scripts": {
-    "moonbridge": "tsx moonbridge.e2e.ts"
+    "moonbridge": "tsx moonbridge.e2e.ts",
+    "school": "tsx school.e2e.ts"
   },
   "dependencies": {
     "@moonbridge/content": "workspace:*",
