@@ -1,8 +1,10 @@
 import type { Learner } from "../core/learner.js";
 import type { KeyValue } from "../storage/idb.js";
 import { el } from "../ui/dom.js";
+import { streakOf, todaysShift, type ShiftPlan } from "./daily.js";
 import { playEpisode } from "./player.js";
-import { completeEpisode, hotelView, migrateState, studentCourse, type HotelView, type MoonbridgeState } from "./progress.js";
+import { completeEpisode, hotelView, markPractice, markShift, migrateState, studentCourse, type HotelView, type MoonbridgeState } from "./progress.js";
+import { playShift, shiftFinale } from "./shift.js";
 
 // The Moonbridge section. It is loaded only when the student opens /moonbridge, so the
 // platform works, and stays light, without it. It keeps nothing but its own game state;
@@ -27,12 +29,23 @@ export async function mountMoonbridge(root: HTMLElement, path: string, d: Sectio
   const state = migrateState(await d.kv.get(KEY));
   const episodeId = /^\/moonbridge\/episode\/([A-Za-z0-9_]+)$/.exec(path)?.[1];
   const view = hotelView(content, course, state);
+  const today = d.learner.day();
+  const plan = await todaysShift(d.learner, state);
+
+  if (path === "/moonbridge/shift") {
+    if (!plan || !hasWork(plan) || state.shift_days.includes(today)) return d.navigate("/moonbridge");
+    const result = await playShift(root, plan, { content, learner: d.learner, mediaBase: d.mediaBase });
+    const next = markShift(migrateState(await d.kv.get(KEY)), plan.day);
+    await d.kv.set(KEY, next);
+    root.replaceChildren(shiftFinale(plan, result, streakOf(next.practice_days, plan.day).days, () => d.navigate("/moonbridge")));
+    return;
+  }
 
   if (episodeId) {
     const playable = view.places.filter((p) => p.open).flatMap((p) => p.episodes).find((e) => e.episode.episode_id === episodeId && e.available);
     if (!playable) return d.navigate("/moonbridge");
     const result = await playEpisode(root, playable.episode, { content, learner: d.learner, mediaBase: d.mediaBase });
-    const next: MoonbridgeState = completeEpisode(state, result.episodeId);
+    const next: MoonbridgeState = markPractice(completeEpisode(state, result.episodeId), d.learner.day());
     await d.kv.set(KEY, next);
     const before = new Set(view.places.filter((p) => p.open).map((p) => p.place.place_id));
     const opened = hotelView(content, course, next).places.filter((p) => p.open && !before.has(p.place.place_id));
@@ -48,10 +61,45 @@ export async function mountMoonbridge(root: HTMLElement, path: string, d: Sectio
     );
     return;
   }
-  renderMap(root, view, d);
+  renderMap(root, view, plan, state, today, d);
 }
 
-function renderMap(root: HTMLElement, view: HotelView, d: SectionDeps): void {
+function hasWork(plan: ShiftPlan): boolean {
+  return plan.lostAndFound.length > 0 || plan.guest !== undefined;
+}
+
+/** The daily shift card on top of the map: what is waiting today, or who comes tomorrow. */
+function shiftCard(plan: ShiftPlan | undefined, state: MoonbridgeState, today: number, d: SectionDeps): HTMLElement | undefined {
+  if (!plan) return undefined;
+  const streak = streakOf(state.practice_days, today);
+  const streakLine = el("p", { class: "muted streak", "data-streak": String(streak.days) }, streak.days ? `Дней практики подряд: ${streak.days}` : "Серия начнётся с сегодняшней смены");
+  if (state.shift_days.includes(today)) {
+    return el(
+      "div",
+      { class: "card shift-card done", "data-shift-card": "done" },
+      el("h2", {}, "Смена на сегодня закрыта"),
+      ...(plan.teaser ? [el("p", {}, `Завтра: ${plan.teaser.teaser.ru ?? plan.teaser.teaser.en}`)] : []),
+      streakLine,
+    );
+  }
+  if (!hasWork(plan)) {
+    return el("div", { class: "card shift-card", "data-shift-card": "empty" }, el("h2", {}, "Смена в отеле"), el("p", {}, "Сегодня бюро находок пусто, а гости придут, когда вы пройдёте первый юнит."), streakLine);
+  }
+  const parts = [
+    plan.lostAndFound.length ? `в бюро находок ${plan.lostAndFound.length} шт.` : "",
+    plan.guest ? `гость дня: ${plan.guest.template.name}` : "",
+  ].filter(Boolean);
+  return el(
+    "div",
+    { class: "card shift-card", "data-shift-card": "ready" },
+    el("h2", {}, "Смена в отеле"),
+    el("p", {}, `Сегодня ${parts.join(", ")}. Около ${Math.max(1, Math.round(plan.estimatedMs / 60_000))} мин.`),
+    streakLine,
+    el("button", { class: "primary start-shift", onclick: () => d.navigate("/moonbridge/shift") }, plan.returning ? "Вернуться к работе" : "Начать смену"),
+  );
+}
+
+function renderMap(root: HTMLElement, view: HotelView, plan: ShiftPlan | undefined, state: MoonbridgeState, today: number, d: SectionDeps): void {
   const map = el("div", { class: "hotel-map" });
   for (const p of view.places) {
     const done = p.episodes.filter((e) => e.done).length;
@@ -88,6 +136,7 @@ function renderMap(root: HTMLElement, view: HotelView, d: SectionDeps): void {
       "div",
       { class: "hotel" },
       el("header", { class: "section-head" }, el("a", { href: "/", "data-link": "", class: "back" }, "← Платформа"), el("h1", {}, "Hotel Hello")),
+      ...[shiftCard(plan, state, today, d)].filter((x): x is HTMLElement => x !== undefined),
       play,
       map,
     ),

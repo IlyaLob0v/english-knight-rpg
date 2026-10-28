@@ -1,0 +1,12 @@
+{
+  "schema_version": "2.0",
+  "guests": [
+    { "guest_id": "moss", "name": "Mr Moss", "species": { "en": "bog troll", "ru": "болотный тролль" }, "host": "rocco", "task_count": 3, "arrival": { "en": "A room with a swamp view, please." }, "thanks": { "en": "Wonderful!" }, "disappointed": { "en": "Hm." }, "teaser": { "en": "Tomorrow: a wet guest." } },
+    { "guest_id": "lumen", "name": "Lumen", "species": { "en": "lantern spirit", "ru": "дух фонаря" }, "arrival": { "en": "One night, please." }, "thanks": { "en": "Bright!" }, "disappointed": { "en": "Dim." }, "teaser": { "en": "Tomorrow: a bright guest." } }
+  ],
+  "lost_items": [
+    { "item_id": "umbrella", "name": { "en": "a black umbrella", "ru": "чёрный зонт" } },
+    { "item_id": "sock", "name": { "en": "one very long sock", "ru": "один очень длинный носок" } },
+    { "item_id": "bell", "name": { "en": "a tiny silver bell", "ru": "крошечный серебряный колокольчик" } }
+  ]
+}

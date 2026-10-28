@@ -4,17 +4,41 @@ import type { ContentBundle, Course, Episode, MoonbridgeContent, Place } from "@
 export interface MoonbridgeState {
   version: 1;
   completed_episodes: string[];
+  /** School days (RepeatSchedule.day) with an episode or a shift finished: the streak is made of these. */
+  practice_days: number[];
+  /** School days whose daily shift is finished. */
+  shift_days: number[];
 }
 
 export function emptyState(): MoonbridgeState {
-  return { version: 1, completed_episodes: [] };
+  return { version: 1, completed_episodes: [], practice_days: [], shift_days: [] };
 }
+
+const numbers = (v: unknown): number[] => (Array.isArray(v) ? v.filter((x): x is number => Number.isInteger(x)) : []);
 
 /** Accepts a stored state of any age; unknown shapes start fresh rather than break the section. */
 export function migrateState(raw: unknown): MoonbridgeState {
   const r = raw as Partial<MoonbridgeState> | undefined;
-  if (r?.version === 1 && Array.isArray(r.completed_episodes)) return { version: 1, completed_episodes: r.completed_episodes.filter((e) => typeof e === "string") };
-  return emptyState();
+  if (r?.version !== 1 || !Array.isArray(r.completed_episodes)) return emptyState();
+  return {
+    version: 1,
+    completed_episodes: r.completed_episodes.filter((e) => typeof e === "string"),
+    practice_days: numbers(r.practice_days),
+    shift_days: numbers(r.shift_days),
+  };
+}
+
+/** Keeps the last 60 days: enough for any streak and the week view, small enough to back up. */
+function addDay(days: number[], day: number): number[] {
+  return days.includes(day) ? days : [...days, day].sort((a, b) => a - b).slice(-60);
+}
+
+export function markPractice(state: MoonbridgeState, day: number): MoonbridgeState {
+  return { ...state, practice_days: addDay(state.practice_days, day) };
+}
+
+export function markShift(state: MoonbridgeState, day: number): MoonbridgeState {
+  return { ...markPractice(state, day), shift_days: addDay(state.shift_days, day) };
 }
 
 export function completeEpisode(state: MoonbridgeState, episodeId: string): MoonbridgeState {
@@ -39,6 +63,8 @@ export interface HotelView {
   course: Course;
   /** The unit the student is on: the first one in course order with an episode not yet played. Undefined when all are done. */
   currentUnit: string | undefined;
+  /** Units behind the student, in course order: the guest of the day only brings tasks from these. */
+  studiedUnits: string[];
   places: PlaceView[];
   /** What the "Play" button on the map starts: the first available episode not yet played. */
   next: Episode | undefined;
@@ -73,7 +99,7 @@ export function hotelView(content: MoonbridgeContent, course: Course, state: Moo
     .flatMap((p) => p.episodes)
     .filter((e) => e.available && !e.done)
     .sort((a, b) => position.get(a.episode.module_id)! - position.get(b.episode.module_id)!)[0]?.episode;
-  return { course, currentUnit: course.units[currentPos], places, next };
+  return { course, currentUnit: course.units[currentPos], studiedUnits: course.units.slice(0, currentPos), places, next };
 }
 
 /** The course the student is on. One course until groups arrive (week 5). */

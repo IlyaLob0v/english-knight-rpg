@@ -1,9 +1,11 @@
-// End-to-end check of week 3 on a phone screen (390 × 844):
+// End-to-end check on a phone screen (390 × 844), with the browser clock under control:
 //
-//   sign-in → Today → Moonbridge (a separate chunk, no second sign-in) → the hotel map →
-//   the unit 1 episode at the reception, a wrong answer into its funny branch and back,
-//   to the end → the episode marked done after a reload, and every answer accepted by
-//   the gateway's xAPI intake.
+//   day 0: sign-in → Today → Moonbridge (a separate chunk, no second sign-in) → the hotel
+//   map → the unit 1 episode at the reception, a wrong answer into its funny branch and
+//   back, to the end → the episode marked done after a reload.
+//   day 1, offline: the platform opens from the service worker's cache, the day-0 error is
+//   waiting in the lost-and-found, the guest of the day brings unit 1 tasks, the finale
+//   shows the streak and tomorrow's guest; back online, every answer reaches the gateway.
 //
 // Starts its own gateway (in memory, live content) and the built platform (vite preview).
 // Run: pnpm e2e        (HEADED=1 to watch it)
@@ -17,6 +19,8 @@ const ARTIFACTS = new URL(".artifacts/", import.meta.url).pathname;
 const GATEWAY = "http://localhost:8787";
 const WEB = "http://localhost:4173";
 const EPISODE = "A1_NiceToMeetYou_01_check_in";
+const DAY0 = Date.parse("2026-11-09T09:00:00Z"); // 12:00 in Moscow
+const DAY_MS = 24 * 3600_000;
 
 const children: ChildProcess[] = [];
 function start(name: string, cmd: string, args: string[], env: Record<string, string> = {}): void {
@@ -79,13 +83,14 @@ async function main(): Promise<void> {
 
   const browser = await chromium.launch({ headless: !process.env.HEADED });
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: "ru-RU" });
-  const page = await context.newPage();
+  let page = await context.newPage();
+  await page.clock.install({ time: DAY0 });
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   const chunks: string[] = [];
   page.on("request", (r) => r.url().includes("/assets/") && chunks.push(new URL(r.url()).pathname));
   let accepted = 0;
-  page.on("response", async (r) => {
+  context.on("response", async (r) => {
     if (r.url().endsWith("/api/xapi/statements") && r.status() === 202) accepted += ((await r.json()) as { accepted: number }).accepted;
   });
   const noSideScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
@@ -160,6 +165,62 @@ async function main(): Promise<void> {
     check(await page.locator(`.episode.done[data-episode="${EPISODE}"]`).isVisible(), "the episode stays done");
     await new Promise((r) => setTimeout(r, 1500));
     check(accepted >= answered.size + 1, `the gateway accepted ${accepted} answer statements`);
+    check(await page.locator('[data-shift-card="ready"]').isVisible(), "day 0 already offers a shift with the guest of the day");
+
+    step("Day 1, offline");
+    await page.close();
+    await context.setOffline(true);
+    page = await context.newPage();
+    page.on("pageerror", (e) => errors.push(e.message));
+    await page.clock.install({ time: DAY0 + DAY_MS });
+    await page.goto(`${WEB}/moonbridge`);
+    await page.locator(".hotel-map").waitFor();
+    check(true, "the platform and Moonbridge open without a network");
+    const card = page.locator('[data-shift-card="ready"]');
+    check(/в бюро находок 1 шт/.test(await card.innerText()), "yesterday's error waits in the lost-and-found");
+    await page.screenshot({ path: `${ARTIFACTS}shift-card.png` });
+    await card.locator(".start-shift").click();
+    const shift = page.locator(".scene[data-shift]");
+    await shift.waitFor();
+    const steps: string[] = [];
+    const guestTasks: string[] = [];
+    let shot = false;
+    while (!(await page.locator("[data-shift-end]").isVisible())) {
+      const stepId = (await shift.getAttribute("data-step")) ?? "";
+      if (!steps.includes(stepId)) steps.push(stepId);
+      const task = shift.locator(".task");
+      if (await task.isVisible()) {
+        const taskId = (await task.getAttribute("data-task"))!;
+        if (stepId.startsWith("guest_")) guestTasks.push(taskId);
+        if (!shot && stepId.startsWith("item_")) {
+          await page.screenshot({ path: `${ARTIFACTS}lost-and-found.png` });
+          shot = true;
+        }
+        await answerRight(page, bundle.tasks[taskId]!);
+        if (await shift.locator(".feedback").isVisible().catch(() => false)) await shift.getByRole("button", { name: "Дальше" }).click();
+      } else {
+        if (stepId === "guest") await page.screenshot({ path: `${ARTIFACTS}guest.png` }).catch(() => undefined);
+        await shift.locator(".dialog .next").click();
+      }
+      await page.waitForTimeout(50);
+      check(await noSideScroll(), `shift step "${stepId}" fits a 390 px screen`);
+    }
+    check(steps.includes("item_0") && !steps.includes("item_1"), "the lost-and-found brings back exactly yesterday's one error");
+    check(guestTasks.length >= 2 && guestTasks.every((id) => bundle.tasks[id]!.module_id === "A1_NiceToMeetYou_01"), `the guest brings ${guestTasks.length} tasks, all from the passed unit`);
+    const end = page.locator("[data-shift-end]");
+    check(/вернули 1 из 1/.test(await end.innerText()), "the item went back to its owner");
+    check((await end.locator("[data-streak]").getAttribute("data-streak")) === "2", "the streak counts day 0 and day 1");
+    check(await end.locator("[data-teaser]").isVisible(), "the finale announces tomorrow's guest");
+    await page.screenshot({ path: `${ARTIFACTS}shift-end.png` });
+
+    step("Back online");
+    const before = accepted;
+    await context.setOffline(false);
+    for (let i = 0; i < 30 && accepted < before + guestTasks.length + 1; i++) {
+      await page.evaluate(() => window.dispatchEvent(new Event("online")));
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+    check(accepted >= before + guestTasks.length + 1, `the answers given offline reached the gateway (${accepted - before})`);
     check(errors.length === 0, `no page errors${errors.length ? `: ${errors.join("; ")}` : ""}`);
   } catch (e) {
     await page.screenshot({ path: `${ARTIFACTS}failure.png` }).catch(() => undefined);

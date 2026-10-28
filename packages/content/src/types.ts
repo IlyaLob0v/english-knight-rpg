@@ -118,11 +118,38 @@ export interface Episode {
   steps: EpisodeStep[];
 }
 
+export interface GuestTemplate {
+  guest_id: string;
+  name: string;
+  species: Localized;
+  portrait?: string;
+  /** character_id of the resident who meets the guest. */
+  host?: string;
+  /** Tasks the guest brings; they come from units the student has passed. Default 4. */
+  task_count?: number;
+  arrival: { en: string; ru?: string };
+  thanks: { en: string; ru?: string };
+  disappointed: { en: string; ru?: string };
+  teaser: { en: string; ru?: string };
+}
+
+export interface LostItem {
+  item_id: string;
+  name: Localized;
+}
+
+/** The daily shift: guests of the day and lost-and-found items. Optional: without it Moonbridge has episodes only. */
+export interface DailyContent {
+  guests: GuestTemplate[];
+  lost_items: LostItem[];
+}
+
 /** The Moonbridge section's content. The platform works without it. */
 export interface MoonbridgeContent {
   places: Place[];
   characters: Character[];
   episodes: Episode[];
+  daily?: DailyContent;
 }
 
 export interface ErrorType {
@@ -153,6 +180,7 @@ export interface ContentSource {
   places?: SourceFile[];
   characters?: SourceFile[];
   episodes?: SourceFile[];
+  daily?: SourceFile[];
 }
 
 /** Validated content, flattened and indexed: this is what the platform, Moonbridge and the engine consume. */

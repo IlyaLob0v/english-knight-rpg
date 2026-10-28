@@ -2,6 +2,7 @@ import type { ContentBundle, Task } from "@moonbridge/content";
 import {
   ConceptScheduler,
   LearningEngine,
+  medianDurations,
   RepeatSchedule,
   type AttemptJournal,
   type RepeatItem,
@@ -77,6 +78,23 @@ export class Learner {
     await this.d.kv.set(KEYS.cards, this.scheduler.toJSON());
     await this.d.kv.set(KEYS.repeats, this.repeats.toJSON());
     return result;
+  }
+
+  /** What planning needs from the journal: when each task was last shown, and the student's pace per concept. */
+  async pace(): Promise<{ lastSeen: Map<string, number>; medians: Map<string, number> }> {
+    const attempts = await this.d.journal.all();
+    const lastSeen = new Map<string, number>();
+    for (const a of attempts) lastSeen.set(a.task_id, Math.max(lastSeen.get(a.task_id) ?? 0, Date.parse(a.timestamp)));
+    return { lastSeen, medians: medianDurations(attempts) };
+  }
+
+  /** The school day of a moment, in the same calendar as the 1/3/7 schedule. */
+  day(at: Date = this.now()): number {
+    return this.repeats.day(at);
+  }
+
+  now(): Date {
+    return this.d.now?.() ?? new Date();
   }
 
   /** A new scene or session: attempt numbers start again from 1. */
