@@ -14,6 +14,7 @@ const FOLDERS = {
   places: "moonbridge/places.json",
   characters: "moonbridge/characters.json",
   episodes: "moonbridge/episodes",
+  daily: "moonbridge/daily.json",
 } as const;
 
 async function listJson(dir: string): Promise<string[]> {
@@ -44,7 +45,8 @@ async function listJson(dir: string): Promise<string[]> {
 /**
  * Reads the content tree. Layout:
  *   taxonomy/*.json, modules/*.json, tasks/*.json, courses/*.json,
- *   moonbridge/places.json, moonbridge/characters.json, moonbridge/episodes/*.json (optional)
+ *   moonbridge/places.json, moonbridge/characters.json, moonbridge/episodes/*.json (optional),
+ *   moonbridge/daily.json (optional within Moonbridge)
  * A file that is not valid JSON is reported with `parseError` instead of data.
  */
 export async function loadContentDir(root: string): Promise<{ source: ContentSource; parseErrors: { file: string; message: string }[] }> {
@@ -69,6 +71,7 @@ export async function loadContentDir(root: string): Promise<{ source: ContentSou
     places: await read(FOLDERS.places),
     characters: await read(FOLDERS.characters),
     episodes: await read(FOLDERS.episodes),
+    daily: await read(FOLDERS.daily),
   };
   return { source, parseErrors };
 }

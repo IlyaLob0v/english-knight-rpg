@@ -1,4 +1,5 @@
 import type { Learner } from "../core/learner.js";
+import { streakOf, todaysShift } from "../moonbridge/daily.js";
 import { hotelView, migrateState, studentCourse } from "../moonbridge/progress.js";
 import type { KeyValue } from "../storage/idb.js";
 import { el } from "../ui/dom.js";
@@ -16,13 +17,20 @@ export async function renderToday(root: HTMLElement, d: { profile: Profile; lear
   const cards: HTMLElement[] = [];
 
   if (bundle.moonbridge && course) {
-    const view = hotelView(bundle.moonbridge, course, migrateState(await d.kv.get("moonbridge")));
+    const state = migrateState(await d.kv.get("moonbridge"));
+    const view = hotelView(bundle.moonbridge, course, state);
+    const day = d.learner.day(now);
+    const shift = await todaysShift(d.learner, state);
+    const shiftOpen = shift && !state.shift_days.includes(day) && (shift.lostAndFound.length > 0 || shift.guest);
+    const streak = streakOf(state.practice_days, day).days;
     cards.push(
       el(
         "a",
         { class: "card section-card moonbridge", href: "/moonbridge", "data-link": "", "data-section": "moonbridge" },
         el("h2", {}, "Moonbridge"),
         el("p", {}, view.next ? `Hotel Hello ждёт: ${view.next.title.ru}` : "Все эпизоды пройдены, загляните в отель."),
+        ...(shiftOpen ? [el("p", { "data-today-shift": "" }, `Смена в отеле: ${shift.lostAndFound.length ? `вещей в бюро находок: ${shift.lostAndFound.length}` : ""}${shift.lostAndFound.length && shift.guest ? ", " : ""}${shift.guest ? `гость дня ${shift.guest.template.name}` : ""}.`)] : []),
+        ...(streak ? [el("p", { class: "muted" }, `Дней практики подряд: ${streak}`)] : []),
         el("span", { class: "card-action" }, "Открыть →"),
       ),
     );

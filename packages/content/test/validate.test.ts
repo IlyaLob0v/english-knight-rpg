@@ -57,9 +57,18 @@ describe("the fixture content", () => {
     delete src.places;
     delete src.characters;
     delete src.episodes;
+    delete src.daily;
     const result = validateContent(src);
     expect(result.ok).toBe(true);
     expect(buildBundle(result.content!).moonbridge).toBeUndefined();
+  });
+
+  it("works as Moonbridge without the daily shift", async () => {
+    const src = await fixture();
+    delete src.daily;
+    const result = validateContent(src);
+    expect(result.ok).toBe(true);
+    expect(buildBundle(result.content!).moonbridge?.daily).toBeUndefined();
   });
 });
 
@@ -151,6 +160,14 @@ describe("validator catches", () => {
 });
 
 describe("Moonbridge checks", () => {
+  it("a guest whose host is not a character, and a lost item defined twice", async () => {
+    const src = await fixture();
+    const daily = src.daily![0]!.data as any;
+    daily.guests[0].host = "nobody";
+    daily.lost_items.push({ ...daily.lost_items[0] });
+    expect(codes(src).sort()).toEqual(["duplicate.item_id", "ref.character"]);
+  });
+
   it("a course reordering that respects prerequisites is fine, and places follow it", async () => {
     const src = await fixture();
     // VerbToBe, PastSimple, Articles → VerbToBe, Articles, PastSimple: the café (opened by PastSimple)

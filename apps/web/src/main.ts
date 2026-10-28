@@ -9,6 +9,26 @@ import { el } from "./ui/dom.js";
 import "./style.css";
 
 const root = document.getElementById("app")!;
+/** Must match CACHE in public/sw.js. */
+const SHELL_CACHE = "shell-v1";
+
+/**
+ * Puts the page and every built file loaded so far into the service worker's cache, so the
+ * next start works offline. Called after each screen: the Moonbridge chunk is cached once the
+ * student has opened the section online, and never downloaded ahead of that.
+ */
+function cacheLoadedAssets(): void {
+  if (!import.meta.env.PROD || !("caches" in window)) return;
+  const urls = performance
+    .getEntriesByType("resource")
+    .map((e) => new URL(e.name))
+    .filter((u) => u.origin === location.origin && u.pathname.startsWith("/assets/"))
+    .map((u) => u.pathname);
+  void caches
+    .open(SHELL_CACHE)
+    .then((c) => c.addAll(["/", ...new Set(urls)]))
+    .catch((e) => console.warn("offline cache", e));
+}
 
 function fatal(message: string, detail?: unknown): void {
   console.error(message, detail);
@@ -84,10 +104,12 @@ async function boot(): Promise<void> {
     if (path === "/moonbridge" || path.startsWith("/moonbridge/")) {
       // A separate chunk: the platform never downloads the game unless the student opens it.
       const { mountMoonbridge } = await import("./moonbridge/section.js");
+      cacheLoadedAssets();
       return mountMoonbridge(root, path, { learner, kv, mediaBase, navigate });
     }
     if (path !== "/") history.replaceState(null, "", "/");
-    return renderToday(root, { profile, learner, kv });
+    await renderToday(root, { profile, learner, kv });
+    cacheLoadedAssets();
   };
   document.addEventListener("click", (e) => {
     const a = (e.target as Element | null)?.closest?.("a[data-link]") as HTMLAnchorElement | null;

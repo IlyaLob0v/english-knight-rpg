@@ -22,6 +22,14 @@ export function buildBundle(content: ValidatedContent, builtAt = new Date()): Co
             places: [...content.moonbridge.places].sort((a, b) => a.place_id.localeCompare(b.place_id)),
             characters: [...content.moonbridge.characters].sort((a, b) => a.character_id.localeCompare(b.character_id)),
             episodes: [...content.moonbridge.episodes].sort((a, b) => a.episode_id.localeCompare(b.episode_id)),
+            ...(content.moonbridge.daily
+              ? {
+                  daily: {
+                    guests: [...content.moonbridge.daily.guests].sort((a, b) => a.guest_id.localeCompare(b.guest_id)),
+                    lost_items: [...content.moonbridge.daily.lost_items].sort((a, b) => a.item_id.localeCompare(b.item_id)),
+                  },
+                }
+              : {}),
           },
         }
       : {}),

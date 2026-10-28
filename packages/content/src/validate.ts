@@ -6,11 +6,13 @@ import errorsSchema from "../schemas/errors.schema.json" with { type: "json" };
 import placesSchema from "../schemas/places.schema.json" with { type: "json" };
 import charactersSchema from "../schemas/characters.schema.json" with { type: "json" };
 import episodeSchema from "../schemas/episode.schema.json" with { type: "json" };
+import dailySchema from "../schemas/daily.schema.json" with { type: "json" };
 import { normalizeAnswer, tokenize } from "./normalize.js";
 import type {
   Character,
   ContentSource,
   Course,
+  DailyContent,
   Episode,
   EpisodeStep,
   ErrorTaxonomy,
@@ -56,6 +58,7 @@ const validators = {
   places: ajv.compile(placesSchema),
   characters: ajv.compile(charactersSchema),
   episode: ajv.compile(episodeSchema),
+  daily: ajv.compile(dailySchema),
 };
 
 function schemaPass<T>(files: SourceFile[], validate: ValidateFunction, issues: Issue[]): SourceFile<T>[] {
@@ -96,14 +99,15 @@ export function validateContent(source: ContentSource): ValidationResult {
   const placeFiles = schemaPass<{ places: Place[] }>(source.places ?? [], validators.places, issues);
   const characterFiles = schemaPass<{ characters: Character[] }>(source.characters ?? [], validators.characters, issues);
   const episodeFiles = schemaPass<Episode>(source.episodes ?? [], validators.episode, issues);
+  const dailyFiles = schemaPass<DailyContent>(source.daily ?? [], validators.daily, issues);
 
   if (source.taxonomy.length !== 1) {
     err("taxonomy/", "taxonomy.count", `expected exactly one error taxonomy file, found ${source.taxonomy.length}`);
   }
   if (source.courses.length === 0) err("courses/", "course.count", "expected at least one course file");
-  const hasMoonbridge = [source.places, source.characters, source.episodes].some((f) => (f?.length ?? 0) > 0);
-  if (hasMoonbridge && (source.places?.length !== 1 || source.characters?.length !== 1)) {
-    err("moonbridge/", "moonbridge.files", "Moonbridge needs exactly one places.json and one characters.json");
+  const hasMoonbridge = [source.places, source.characters, source.episodes, source.daily].some((f) => (f?.length ?? 0) > 0);
+  if (hasMoonbridge && (source.places?.length !== 1 || source.characters?.length !== 1 || (source.daily?.length ?? 0) > 1)) {
+    err("moonbridge/", "moonbridge.files", "Moonbridge needs exactly one places.json and one characters.json, and at most one daily.json");
   }
   // Cross-file checks only make sense on schema-valid data; stop here otherwise.
   if (issues.some((i) => i.severity === "error")) return { ok: false, issues };
@@ -213,7 +217,7 @@ export function validateContent(source: ContentSource): ValidationResult {
   }
 
   const moonbridge = hasMoonbridge
-    ? checkMoonbridge(placeFiles, characterFiles, episodeFiles, modules, tasks, positions, err, warn)
+    ? checkMoonbridge(placeFiles, characterFiles, episodeFiles, dailyFiles, modules, tasks, positions, err, warn)
     : undefined;
 
   const ok = !issues.some((i) => i.severity === "error");
@@ -295,6 +299,7 @@ function checkMoonbridge(
   placeFiles: SourceFile<{ places: Place[] }>[],
   characterFiles: SourceFile<{ characters: Character[] }>[],
   episodeFiles: SourceFile<Episode>[],
+  dailyFiles: SourceFile<DailyContent>[],
   modules: Map<string, { file: string; module: Module }>,
   tasks: Map<string, { file: string; module_id: string; task: Task }>,
   coursePositions: Map<string, number>[],
@@ -338,7 +343,17 @@ function checkMoonbridge(
     checkSteps(ep, path, place, characters, tasks, err, warn);
   }
 
-  return { places: [...places.values()], characters: [...characters.values()], episodes: [...episodes.values()] };
+  let daily: DailyContent | undefined;
+  for (const { path, data } of dailyFiles) {
+    const guests = collectUnique([{ path, data }], (d) => d.guests, (g) => g.guest_id, "guest_id", err);
+    const items = collectUnique([{ path, data }], (d) => d.lost_items, (i) => i.item_id, "item_id", err);
+    for (const g of guests.values()) {
+      if (g.host && !characters.has(g.host)) err(`${path} › ${g.guest_id}`, "ref.character", `host "${g.host}" does not exist`);
+    }
+    daily = { guests: [...guests.values()], lost_items: [...items.values()] };
+  }
+
+  return { places: [...places.values()], characters: [...characters.values()], episodes: [...episodes.values()], ...(daily ? { daily } : {}) };
 }
 
 function checkSteps(

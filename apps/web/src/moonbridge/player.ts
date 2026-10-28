@@ -1,4 +1,5 @@
-import type { Character, Emotion, Episode, MoonbridgeContent, Place } from "@moonbridge/content";
+import type { Character, Emotion, Episode, MoonbridgeContent, Place, Task } from "@moonbridge/content";
+import type { SubmitResult } from "@moonbridge/learning";
 import type { Learner } from "../core/learner.js";
 import { el } from "../ui/dom.js";
 import { askTask, showFeedback } from "../ui/task-panel.js";
@@ -17,6 +18,63 @@ export interface EpisodeResult {
   path: string[];
 }
 
+/** Someone who can speak in a scene: a resident, or a guest of the day. */
+export interface Speaker {
+  id: string;
+  name: string;
+  speciesRu: string;
+  portraits: Partial<Record<Emotion, string>>;
+}
+
+export function residentSpeaker(c: Character): Speaker {
+  return { id: c.character_id, name: c.name, speciesRu: c.species.ru, portraits: c.portraits };
+}
+
+/** A visual-novel stage: backdrop, portrait, speaker tag and the dialog box. Episodes and the daily shift both play on it. */
+export class Stage {
+  readonly scene: HTMLElement;
+  readonly box: HTMLElement;
+  private readonly portrait = el("div", { class: "portrait" });
+  private readonly speaker = el("div", { class: "speaker" });
+
+  constructor(root: HTMLElement, place: Place, title: string, attrs: Record<string, string>, private readonly d: PlayerDeps) {
+    this.box = el("div", { class: "dialog", "aria-live": "polite" });
+    this.scene = el(
+      "section",
+      { class: "scene", "data-place": place.place_id, ...attrs },
+      background(place, d.mediaBase),
+      el("div", { class: "scene-title" }, title),
+      this.portrait,
+      el("div", { class: "dialog-wrap" }, this.speaker, this.box),
+    );
+    root.replaceChildren(this.scene);
+  }
+
+  /** Who is on stage; undefined = the narrator. */
+  show(who: Speaker | undefined, emotion: Emotion = "neutral"): void {
+    this.speaker.textContent = who?.name ?? "";
+    this.speaker.hidden = !who;
+    this.scene.dataset.speaker = who?.id ?? "narrator";
+    this.box.classList.toggle("narration", !who);
+    this.portrait.replaceChildren(...(who ? [portraitOf(who, emotion, this.d.mediaBase)] : []));
+  }
+
+  line(en: string, ru?: string): Promise<void> {
+    return line(this.box, en, ru);
+  }
+
+  /** Asks a task in the dialog box and records the answer; feedback appears for anything but a clean right answer. */
+  async task(task: Task, context: Record<string, unknown>): Promise<SubmitResult> {
+    const answer = await askTask(this.box, task, { mediaBase: this.d.mediaBase });
+    const result = await this.d.learner.answer(task.task_id, answer, context);
+    if (!(result.outcome.correct && result.outcome.match === "accepted")) {
+      const label = result.outcome.errorType ? this.d.learner.bundle.taxonomy.error_types.find((t) => t.id === result.outcome.errorType)?.label.ru : undefined;
+      await showFeedback(this.box, result.outcome, label);
+    }
+    return result;
+  }
+}
+
 /**
  * Plays one episode as a visual novel: the place behind, the speaker's portrait with an
  * emotion, a line or a task in the dialog box. Right and wrong answers lead wherever the
@@ -24,51 +82,23 @@ export interface EpisodeResult {
  */
 export async function playEpisode(root: HTMLElement, episode: Episode, d: PlayerDeps): Promise<EpisodeResult> {
   const place = d.content.places.find((p) => p.place_id === episode.place_id)!;
-  const characters = new Map(d.content.characters.map((c) => [c.character_id, c]));
+  const characters = new Map(d.content.characters.map((c) => [c.character_id, residentSpeaker(c)]));
   const runner = new EpisodeRunner(episode);
   const firstTry = new Map<string, boolean>();
   d.learner.resetAttempts();
-
-  const portrait = el("div", { class: "portrait" });
-  const speaker = el("div", { class: "speaker" });
-  const box = el("div", { class: "dialog", "aria-live": "polite" });
-  const scene = el(
-    "section",
-    { class: "scene", "data-episode": episode.episode_id, "data-place": place.place_id },
-    background(place, d.mediaBase),
-    el("div", { class: "scene-title" }, episode.title.ru),
-    portrait,
-    el("div", { class: "dialog-wrap" }, speaker, box),
-  );
-  root.replaceChildren(scene);
-
-  const show = (who: string | undefined, emotion: Emotion | undefined) => {
-    const c = who ? characters.get(who) : undefined;
-    speaker.textContent = c?.name ?? "";
-    speaker.hidden = !c;
-    scene.dataset.speaker = who ?? "narrator";
-    portrait.replaceChildren(...(c ? [portraitOf(c, emotion ?? "neutral", d.mediaBase)] : []));
-  };
+  const stage = new Stage(root, place, episode.title.ru, { "data-episode": episode.episode_id }, d);
 
   while (!runner.finished) {
     const step = runner.current;
-    scene.dataset.step = step.id;
+    stage.scene.dataset.step = step.id;
     if (step.kind === "line") {
-      show(step.speaker === "narrator" ? undefined : step.speaker, step.emotion);
-      box.classList.toggle("narration", step.speaker === "narrator");
-      await line(box, step.text.en, step.text.ru);
+      stage.show(step.speaker === "narrator" ? undefined : characters.get(step.speaker), step.emotion);
+      await stage.line(step.text.en, step.text.ru);
       runner.next();
     } else if (step.kind === "task") {
-      show(step.speaker, step.emotion);
-      box.classList.remove("narration");
-      const task = d.learner.task(step.task_id);
-      const answer = await askTask(box, task, { mediaBase: d.mediaBase });
-      const result = await d.learner.answer(task.task_id, answer, { mode: "moonbridge_episode", episode_id: episode.episode_id, step_id: step.id });
+      stage.show(step.speaker ? characters.get(step.speaker) : undefined, step.emotion);
+      const result = await stage.task(d.learner.task(step.task_id), { mode: "moonbridge_episode", episode_id: episode.episode_id, step_id: step.id });
       if (!firstTry.has(step.id)) firstTry.set(step.id, result.outcome.correct);
-      if (!(result.outcome.correct && result.outcome.match === "accepted")) {
-        const label = result.outcome.errorType ? d.learner.bundle.taxonomy.error_types.find((t) => t.id === result.outcome.errorType)?.label.ru : undefined;
-        await showFeedback(box, result.outcome, label);
-      }
       runner.answer(result.outcome.correct);
     }
   }
@@ -105,13 +135,16 @@ function background(place: Place, mediaBase: string): HTMLElement {
   return bg;
 }
 
-function portraitOf(c: Character, emotion: Emotion, mediaBase: string): HTMLElement {
-  const path = c.portraits[emotion] ?? c.portraits.neutral;
-  const frame = el("figure", { class: "portrait-frame", "data-character": c.character_id, "data-emotion": emotion });
-  const stub = el("div", { class: "portrait-stub" }, el("span", { class: "initial" }, c.name.slice(0, 1)), el("span", { class: "species" }, c.species.ru));
-  const img = el("img", { src: `${mediaBase}/${path}`, alt: `${c.name}` }) as HTMLImageElement;
-  img.addEventListener("load", () => stub.remove());
-  img.addEventListener("error", () => img.remove());
-  frame.append(img, stub);
+function portraitOf(who: Speaker, emotion: Emotion, mediaBase: string): HTMLElement {
+  const path = who.portraits[emotion] ?? who.portraits.neutral;
+  const frame = el("figure", { class: "portrait-frame", "data-character": who.id, "data-emotion": emotion });
+  const stub = el("div", { class: "portrait-stub" }, el("span", { class: "initial" }, who.name.slice(0, 1)), el("span", { class: "species" }, who.speciesRu));
+  frame.append(stub);
+  if (path) {
+    const img = el("img", { src: `${mediaBase}/${path}`, alt: who.name }) as HTMLImageElement;
+    img.addEventListener("load", () => stub.remove());
+    img.addEventListener("error", () => img.remove());
+    frame.prepend(img);
+  }
   return frame;
 }

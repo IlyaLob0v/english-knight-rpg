@@ -1,0 +1,46 @@
+{
+  "$schema": "../../packages/content/schemas/daily.schema.json",
+  "schema_version": "2.0",
+  "guests": [
+    {
+      "guest_id": "moss",
+      "name": "Mr Moss",
+      "species": { "en": "bog troll", "ru": "болотный тролль" },
+      "host": "rocco",
+      "arrival": { "en": "Good evening! I booked a room with a swamp view. Is this the right hotel?", "ru": "Добрый вечер! Я бронировал номер с видом на болото. Я в правильном отеле?" },
+      "thanks": { "en": "Wonderful service. I will tell all my cousins. All forty of them.", "ru": "Чудесный сервис. Расскажу всем кузенам. Всем сорока." },
+      "disappointed": { "en": "Hm. I understood nothing, but the mud in my room is lovely.", "ru": "Хм. Я ничего не понял, но грязь в номере чудесная." },
+      "teaser": { "en": "Tomorrow a very wet guest is coming. Rocco has already hidden the carpets.", "ru": "Завтра приедет очень мокрый гость. Rocco уже спрятал ковры." }
+    },
+    {
+      "guest_id": "lumen",
+      "name": "Lumen",
+      "species": { "en": "lantern spirit", "ru": "дух фонаря" },
+      "host": "rocco",
+      "arrival": { "en": "Hello! I'm here for one night. I'm afraid of the dark, which is awkward for a lantern.", "ru": "Здравствуйте! Я на одну ночь. Боюсь темноты, что для фонаря неловко." },
+      "thanks": { "en": "You made my night brighter. Literally: I'm glowing.", "ru": "Вы сделали мою ночь светлее. Буквально: я свечусь." },
+      "disappointed": { "en": "I'm a little confused, but at least I'm warm.", "ru": "Я немного запутался, но хотя бы мне тепло." },
+      "teaser": { "en": "Tomorrow someone small and bright checks in. Don't switch off the lights.", "ru": "Завтра заселится кто-то маленький и яркий. Не выключайте свет." }
+    },
+    {
+      "guest_id": "grandma_vee",
+      "name": "Grandma Vee",
+      "species": { "en": "retired vampire", "ru": "вампирша на пенсии" },
+      "host": "rocco",
+      "arrival": { "en": "Good evening, dear. I need a quiet room, no garlic, and a very strong tea.", "ru": "Добрый вечер, дорогой. Мне тихий номер, без чеснока, и очень крепкий чай." },
+      "thanks": { "en": "Such a polite young person! Here, have a candy. It's from 1890.", "ru": "Какой вежливый молодой человек! Вот, возьмите конфетку. Она с 1890 года." },
+      "disappointed": { "en": "In my day we spoke better English. Well, in my day there was no English.", "ru": "В моё время говорили по-английски лучше. Хотя в моё время английского ещё не было." },
+      "teaser": { "en": "Tomorrow an old lady with very good teeth arrives. Be polite.", "ru": "Завтра приедет пожилая дама с очень хорошими зубами. Будьте вежливы." }
+    }
+  ],
+  "lost_items": [
+    { "item_id": "umbrella", "name": { "en": "a black umbrella", "ru": "чёрный зонт" } },
+    { "item_id": "key_13", "name": { "en": "the key to room 13", "ru": "ключ от номера 13" } },
+    { "item_id": "sock", "name": { "en": "one very long sock", "ru": "один очень длинный носок" } },
+    { "item_id": "teacup", "name": { "en": "a teacup that hums", "ru": "чашка, которая мурлычет" } },
+    { "item_id": "map", "name": { "en": "a map of a town that doesn't exist", "ru": "карта несуществующего города" } },
+    { "item_id": "glasses", "name": { "en": "a pair of glasses for three eyes", "ru": "очки на три глаза" } },
+    { "item_id": "postcard", "name": { "en": "a postcard from the Moon", "ru": "открытка с Луны" } },
+    { "item_id": "bell", "name": { "en": "a tiny silver bell", "ru": "крошечный серебряный колокольчик" } }
+  ]
+}
