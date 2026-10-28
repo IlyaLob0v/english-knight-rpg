@@ -131,7 +131,7 @@ describe("module result → AGS", () => {
     expect(forged.player_id).toMatch(/^guest_[0-9a-f]{8}$/);
 
     const me = await app.inject({ url: "/session/me", headers: { authorization: `Bearer ${again.token}` } });
-    expect(me.json()).toEqual({ player_id: first.player_id, registration: again.registration, xapi_base_iri: "https://moonbridge.example.com", lti: null });
+    expect(me.json()).toEqual({ player_id: first.player_id, registration: again.registration, xapi_base_iri: "https://moonbridge.example.com", lti: null, account: null });
     expect((await app.inject({ url: "/session/me" })).statusCode).toBe(401);
   });
 

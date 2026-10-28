@@ -1,8 +1,10 @@
 import type { ContentBundle } from "@moonbridge/content";
 import { Learner } from "./core/learner.js";
-import { Api, GatewaySink, localSessionStorage, renewGuest, startSession } from "./net/api.js";
+import { Api, ApiError, GatewaySink, localSessionStorage, renewGuest, SignedOutError, startSession, type Dashboard, type SessionInfo } from "./net/api.js";
 import { ProgressBackup } from "./net/backup.js";
-import { askProfile, loadProfile, saveProfile } from "./platform/login.js";
+import { askProfile, joinGroup, loadProfile, saveProfile, signIn, signOut } from "./platform/login.js";
+import { loadDashboard, renderHomework } from "./platform/school.js";
+import { renderTeacher } from "./platform/teacher.js";
 import { renderToday } from "./platform/today.js";
 import { IdbJournal, IdbKeyValue, IdbOutboxStore, openPlayerDb, type KeyValue } from "./storage/idb.js";
 import { el } from "./ui/dom.js";
@@ -52,11 +54,29 @@ async function loadBundle(api: Api, kv: KeyValue): Promise<ContentBundle | undef
 async function boot(): Promise<void> {
   const apiBase = import.meta.env.VITE_API_BASE ?? "/api";
   const api = new Api(apiBase);
-  const profile = loadProfile() ?? (await askProfile(root));
-  saveProfile(profile);
+
+  // An invitation link first: the student creates an account (or joins with theirs) and lands on Today.
+  const invite = /^\/join\/([A-Za-z0-9]+)$/.exec(location.pathname)?.[1];
+  if (invite) {
+    await joinGroup(root, api, localSessionStorage, invite);
+    history.replaceState(null, "", "/");
+  }
+  if (!localSessionStorage.load() && !location.hash.includes("session=")) {
+    if ((await signIn(root, api, localSessionStorage)) === "guest") saveProfile(await askProfile(root));
+  }
   root.replaceChildren(el("div", { class: "card" }, el("p", {}, "Загрузка…")));
 
-  const { session } = await startSession(api, localSessionStorage, "");
+  let session: SessionInfo;
+  try {
+    ({ session } = await startSession(api, localSessionStorage, location.hash));
+  } catch (e) {
+    if (!(e instanceof SignedOutError)) throw e;
+    await signIn(root, api, localSessionStorage, "Сессия закончилась, войдите ещё раз.");
+    ({ session } = await startSession(api, localSessionStorage, ""));
+  }
+  if (location.hash.includes("session=")) history.replaceState(null, "", location.pathname);
+  const profile = session.account ? { name: session.account.name } : (loadProfile() ?? (await askProfile(root)));
+  saveProfile(profile);
   const db = await openPlayerDb(session.playerId);
   const local = new IdbKeyValue(db);
   const bundle = await loadBundle(api, local);
@@ -94,6 +114,21 @@ async function boot(): Promise<void> {
   setInterval(sync, 30_000);
 
   const mediaBase = `${apiBase.replace(/\/$/, "")}/content/media`;
+  const onSignOut = () => {
+    signOut();
+    location.assign("/");
+  };
+  /** The school's dashboard, from the gateway or, offline, from the last visit. */
+  const dashboard = async (): Promise<Dashboard | undefined> => {
+    if (session.kind !== "account") return undefined;
+    try {
+      return await loadDashboard(api, session.token, local);
+    } catch (e) {
+      // The account session expired while the platform was open.
+      if (e instanceof ApiError && e.status === 401) onSignOut();
+      return undefined;
+    }
+  };
   const navigate = (path: string) => {
     if (path !== location.pathname) history.pushState(null, "", path);
     void route();
@@ -105,10 +140,20 @@ async function boot(): Promise<void> {
       // A separate chunk: the platform never downloads the game unless the student opens it.
       const { mountMoonbridge } = await import("./moonbridge/section.js");
       cacheLoadedAssets();
-      return mountMoonbridge(root, path, { learner, kv, mediaBase, navigate });
+      const board = await dashboard();
+      return mountMoonbridge(root, path, { learner, kv, mediaBase, navigate, ...(board ? { board } : {}) });
     }
+    const homeworkId = /^\/homework\/([A-Za-z0-9_]+)$/.exec(path)?.[1];
+    if (homeworkId && session.kind === "account") return renderHomework(root, homeworkId, { api, token: session.token, kv: local, navigate });
+    if (path === "/teacher" && session.account?.role === "teacher") return renderTeacher(root, { api, token: session.token, kv: local });
     if (path !== "/") history.replaceState(null, "", "/");
-    await renderToday(root, { profile, learner, kv });
+    const board = await dashboard();
+    await renderToday(root, {
+      profile,
+      learner,
+      kv,
+      ...(session.account ? { school: { dashboard: board, role: session.account.role, onSignOut } } : {}),
+    });
     cacheLoadedAssets();
   };
   document.addEventListener("click", (e) => {

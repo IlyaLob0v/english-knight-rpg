@@ -37,6 +37,17 @@ export function connectPostgres(connectionString: string): PgSql {
   };
 }
 
+/** Postgres in this process (PGlite, WASM), for development without a database server. Forgets everything on exit. */
+export async function memoryPostgres(): Promise<PgSql> {
+  const { PGlite } = await import("@electric-sql/pglite");
+  const db = new PGlite();
+  return {
+    query: async <T>(text: string, params?: unknown[]) => ({ rows: (await db.query<T>(text, params)).rows }),
+    exec: (text) => db.exec(text),
+    close: () => db.close(),
+  };
+}
+
 const MIGRATIONS_DIR = new URL("../../migrations/", import.meta.url);
 // Any constant: serialises migrations when several gateway instances start at once.
 const MIGRATION_LOCK = 4_242_001;

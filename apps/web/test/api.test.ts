@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Api, GatewaySink, sessionFromFragment, startSession, type SessionInfo, type SessionStorage } from "../src/net/api.js";
+import { Api, GatewaySink, SignedOutError, sessionFromFragment, startSession, type SessionInfo, type SessionStorage } from "../src/net/api.js";
 
 function memoryStore(initial?: SessionInfo): SessionStorage & { value?: SessionInfo } {
   const s: SessionStorage & { value?: SessionInfo } = { load: () => s.value, save: (v) => void (s.value = v) };
@@ -42,6 +42,19 @@ describe("startSession", () => {
     const { session } = await startSession(api, store, "");
     expect(session).toMatchObject({ token: "new", playerId: "guest_1234abcd", registration: "reg-2" });
     expect(calls).toEqual(["/session/me", "/session/guest", "/session/me"]);
+  });
+
+  it("asks a student whose account session expired to sign in again instead of starting a guest", async () => {
+    const api = new Api("/api", fakeFetch(() => new Response(null, { status: 401 })));
+    const store = memoryStore({
+      token: "old",
+      playerId: "player_0123456789abcdef",
+      registration: "reg-1",
+      xapiBaseIri: "https://moonbridge.test",
+      kind: "account",
+      account: { id: "acc_1", name: "Анна", role: "student", login: "anna" },
+    });
+    await expect(startSession(api, store, "")).rejects.toBeInstanceOf(SignedOutError);
   });
 
   it("starts offline with a local guest id the gateway will accept later", async () => {

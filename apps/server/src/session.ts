@@ -1,11 +1,12 @@
 import { jwtVerify, SignJWT } from "jose";
 import type { AgsEndpoint } from "./lti/claims.js";
 
-/** What a game session carries. LTI fields are present only for sessions started from an LMS. */
+/** What a session carries. LTI fields are present only for sessions started from an LMS, account fields only after a sign-in. */
 export interface Session {
   playerId: string;
   /** Doubles as xAPI context.registration. */
   registration: string;
+  account?: { id: string; role: "student" | "teacher" };
   lti?: {
     iss: string;
     clientId: string;
@@ -28,13 +29,14 @@ export class SessionTokens {
     this.key = new TextEncoder().encode(secret);
   }
 
-  issue(s: Session): Promise<string> {
-    return new SignJWT({ reg: s.registration, ...(s.lti ? { lti: s.lti } : {}) })
+  /** `ttlSeconds` overrides the default: account sessions live for weeks, guest and LMS ones for hours. */
+  issue(s: Session, ttlSeconds = this.ttlSeconds): Promise<string> {
+    return new SignJWT({ reg: s.registration, ...(s.lti ? { lti: s.lti } : {}), ...(s.account ? { acc: s.account } : {}) })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuer(this.issuer)
       .setSubject(s.playerId)
       .setIssuedAt()
-      .setExpirationTime(`${this.ttlSeconds}s`)
+      .setExpirationTime(`${ttlSeconds}s`)
       .sign(this.key);
   }
 
@@ -42,7 +44,12 @@ export class SessionTokens {
     try {
       const { payload } = await jwtVerify(token, this.key, { issuer: this.issuer, algorithms: ["HS256"] });
       if (!payload.sub || typeof payload.reg !== "string") return undefined;
-      return { playerId: payload.sub, registration: payload.reg, ...(payload.lti ? { lti: payload.lti as Session["lti"] } : {}) };
+      return {
+        playerId: payload.sub,
+        registration: payload.reg,
+        ...(payload.lti ? { lti: payload.lti as Session["lti"] } : {}),
+        ...(payload.acc ? { account: payload.acc as Session["account"] } : {}),
+      };
     } catch {
       return undefined;
     }

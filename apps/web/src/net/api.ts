@@ -2,14 +2,90 @@ import type { ContentBundle } from "@moonbridge/content";
 import type { SendOutcome, Statement, StatementSink } from "@moonbridge/xapi";
 import type { Snapshot } from "./backup.js";
 
+export interface AccountInfo {
+  id: string;
+  name: string;
+  role: "student" | "teacher";
+  login: string;
+}
+
+/** What the gateway answers to a sign-in or a join. */
+export interface SignedIn {
+  token: string;
+  player_id: string;
+  registration: string;
+  account: AccountInfo;
+}
+
+export interface SlotView {
+  weekday: number;
+  time: string;
+  minutes: number;
+}
+
+export interface SubmissionView {
+  submission_id: string;
+  account_id: string;
+  student_name: string;
+  file_name: string;
+  mime: string;
+  size: number;
+  submitted_at: string;
+}
+
+export interface GroupView {
+  group_id: string;
+  name: string;
+  teacher_name: string;
+  call_url: string | null;
+  schedule: SlotView[];
+  /** Teachers only. */
+  members?: { id: string; name: string }[];
+}
+
+export interface HomeworkView {
+  homework_id: string;
+  group_id: string;
+  title: string;
+  description: string;
+  due_at: string | null;
+  needs_file: boolean;
+  created_at: string;
+  /** Students: their own hand-in. */
+  submission?: SubmissionView | null;
+  /** Teachers: everyone's hand-ins. */
+  submissions?: SubmissionView[];
+}
+
+/** The student's or the teacher's school: groups, schedule and homework. */
+export interface Dashboard {
+  account: AccountInfo;
+  groups: GroupView[];
+  homework: HomeworkView[];
+}
+
+export interface NewGroup {
+  name: string;
+  call_url: string | null;
+  schedule: SlotView[];
+}
+
+export interface NewHomework {
+  title: string;
+  description: string;
+  due_at: string | null;
+  needs_file: boolean;
+}
+
 /** What the client knows about its session; persisted so the game starts offline too. */
 export interface SessionInfo {
   token?: string;
   playerId: string;
   registration: string;
   xapiBaseIri: string;
-  /** "lti" sessions come from an LMS launch and cannot be renewed by the client. */
-  kind: "guest" | "lti";
+  /** "lti" sessions come from an LMS launch and cannot be renewed by the client; "account" ones need the password again when they expire. */
+  kind: "guest" | "lti" | "account";
+  account?: AccountInfo;
   /** custom.module_id of the LMS link, if the launch is bound to one module. */
   ltiModuleId?: string;
 }
@@ -17,10 +93,16 @@ export interface SessionInfo {
 export const DEFAULT_XAPI_BASE_IRI = "https://moonbridge.example.com";
 
 export class ApiError extends Error {
-  constructor(readonly status: number, message: string) {
+  /** The gateway's own explanation, in Russian, when it gave one. */
+  readonly userMessage: string | undefined;
+  constructor(readonly status: number, message: string, userMessage?: string) {
     super(message);
+    this.userMessage = userMessage;
   }
 }
+
+/** A signed-in account whose session has expired: the student signs in again. */
+export class SignedOutError extends Error {}
 
 /** Client of the integration gateway (apps/server). */
 export class Api {
@@ -36,8 +118,76 @@ export class Api {
     if (token) headers.set("Authorization", `Bearer ${token}`);
     if (init.body) headers.set("Content-Type", "application/json");
     const res = await this.fetchImpl(`${this.base}${path}`, { ...init, headers, signal: AbortSignal.timeout(15000) });
-    if (!res.ok) throw new ApiError(res.status, `${init.method ?? "GET"} ${path}: HTTP ${res.status}`);
+    if (!res.ok) {
+      const body = (await res.json().catch(() => undefined)) as { message?: string } | undefined;
+      throw new ApiError(res.status, `${init.method ?? "GET"} ${path}: HTTP ${res.status}`, body?.message);
+    }
     return (await res.json()) as T;
+  }
+
+  authOptions() {
+    return this.json<{ guest: boolean }>("/auth/options");
+  }
+
+  login(login: string, password: string) {
+    return this.json<SignedIn>("/auth/login", { method: "POST", body: JSON.stringify({ login, password }) });
+  }
+
+  invite(code: string) {
+    return this.json<{ group: { name: string; teacher_name: string } }>(`/invites/${encodeURIComponent(code)}`);
+  }
+
+  /** Joins the invitation's group: a new student account, or the signed-in one when `token` is an account's. */
+  join(code: string, fields: { name: string; login: string; password: string } | undefined, token?: string) {
+    return this.json<SignedIn & { group: GroupView }>(`/invites/${encodeURIComponent(code)}/join`, { method: "POST", body: JSON.stringify(fields ?? {}) }, token);
+  }
+
+  dashboard(token: string) {
+    return this.json<Dashboard>("/school/dashboard", {}, token);
+  }
+
+  createGroup(token: string, group: NewGroup) {
+    return this.json<{ group: GroupView }>("/school/groups", { method: "POST", body: JSON.stringify(group) }, token);
+  }
+
+  createInvite(token: string, groupId: string) {
+    return this.json<{ code: string; url: string; expires_at: string }>(`/school/groups/${groupId}/invites`, { method: "POST" }, token);
+  }
+
+  createHomework(token: string, groupId: string, hw: NewHomework) {
+    return this.json<{ homework: HomeworkView }>(`/school/groups/${groupId}/homework`, { method: "POST", body: JSON.stringify(hw) }, token);
+  }
+
+  /** A short-lived link to a handed-in file, which the browser opens as an ordinary download. */
+  async submissionLink(token: string, submissionId: string): Promise<string> {
+    const { url } = await this.json<{ url: string }>(`/school/submissions/${submissionId}/link`, { method: "POST" }, token);
+    return `${this.base}${url}`;
+  }
+
+  /**
+   * Sends a hand-in file as the request body. XMLHttpRequest rather than fetch, because a
+   * 50 MB recording on a phone connection needs a progress bar.
+   */
+  uploadSubmission(token: string, homeworkId: string, file: File, onProgress?: (fraction: number) => void): Promise<SubmissionView> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", `${this.base}/school/homework/${homeworkId}/submission?name=${encodeURIComponent(file.name)}`);
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+      xhr.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total);
+      xhr.onload = () => {
+        let body: { submission?: SubmissionView; message?: string } | undefined;
+        try {
+          body = JSON.parse(xhr.responseText) as typeof body;
+        } catch {
+          body = undefined;
+        }
+        if (xhr.status === 201 && body?.submission) resolve(body.submission);
+        else reject(new ApiError(xhr.status, `upload: HTTP ${xhr.status}`, body?.message));
+      };
+      xhr.onerror = () => reject(new ApiError(0, "upload: network error", "Нет связи. Попробуйте ещё раз, когда появится интернет."));
+      xhr.send(file);
+    });
   }
 
   guest(previousPlayerId?: string) {
@@ -48,7 +198,7 @@ export class Api {
   }
 
   me(token: string) {
-    return this.json<{ player_id: string; registration: string; xapi_base_iri: string; lti: { module_id: string | null } | null }>(
+    return this.json<{ player_id: string; registration: string; xapi_base_iri: string; lti: { module_id: string | null } | null; account?: { id: string; role: string } | null }>(
       "/session/me",
       {},
       token,
@@ -185,6 +335,7 @@ export async function startSession(api: Api, store: SessionStorage, fragment: st
         store.save(session);
         return { session, online: true };
       } catch (e) {
+        if (e instanceof ApiError && e.status === 401 && stored.kind === "account") throw new SignedOutError("the account session has expired");
         if (!(e instanceof ApiError && e.status === 401) || stored.kind === "lti") throw e;
       }
     }
@@ -192,7 +343,7 @@ export async function startSession(api: Api, store: SessionStorage, fragment: st
     store.save(session);
     return { session, online: true };
   } catch (e) {
-    if (e instanceof ApiError && e.status !== 401 && e.status < 500) throw e;
+    if (e instanceof SignedOutError || (e instanceof ApiError && e.status !== 401 && e.status < 500)) throw e;
     const session: SessionInfo = stored ?? {
       playerId: `guest_${crypto.randomUUID().replaceAll("-", "").slice(0, 8)}`,
       registration: crypto.randomUUID(),
@@ -202,6 +353,11 @@ export async function startSession(api: Api, store: SessionStorage, fragment: st
     store.save(session);
     return { session, online: false };
   }
+}
+
+/** The session of a student or teacher who has just signed in or joined a group. */
+export function accountSession(s: SignedIn, xapiBaseIri: string): SessionInfo {
+  return { token: s.token, playerId: s.player_id, registration: s.registration, xapiBaseIri, kind: "account", account: s.account };
 }
 
 export async function renewGuest(api: Api, previousPlayerId?: string): Promise<SessionInfo> {

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Integration gateway: Content API, xAPI outbox to LRS, LTI 1.3 tool (OIDC launch + AGS)",
+  "description": "Gateway: school accounts, groups and homework files, Content API, xAPI outbox to LRS, LTI 1.3 tool",
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "start": "tsx src/main.ts",
@@ -17,10 +17,10 @@
     "@moonbridge/xapi": "workspace:*",
     "fastify": "^5.12.7",
     "jose": "^6.2.13",
-    "pg": "^8.23.1"
+    "pg": "^8.23.1",
+    "@electric-sql/pglite": "^0.5.11"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.11",
     "@types/pg": "^8.23.1"
   }
 }

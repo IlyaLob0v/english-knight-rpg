@@ -1,20 +1,44 @@
 import type { Learner } from "../core/learner.js";
 import { streakOf, todaysShift } from "../moonbridge/daily.js";
+import type { Dashboard } from "../net/api.js";
 import { hotelView, migrateState, studentCourse } from "../moonbridge/progress.js";
 import type { KeyValue } from "../storage/idb.js";
 import { el } from "../ui/dom.js";
+import { studentCards } from "./school.js";
 
 export interface Profile {
   name: string;
 }
 
+export interface TodayDeps {
+  profile: Profile;
+  learner: Learner;
+  kv: KeyValue;
+  now?: Date;
+  /** A signed-in student's or teacher's school; undefined for guests and LMS launches. */
+  school?: { dashboard: Dashboard | undefined; role: "student" | "teacher"; onSignOut: () => void };
+}
+
 /** The platform's home screen: what to do today, across courses and sections. */
-export async function renderToday(root: HTMLElement, d: { profile: Profile; learner: Learner; kv: KeyValue; now?: Date }): Promise<void> {
+export async function renderToday(root: HTMLElement, d: TodayDeps): Promise<void> {
   const now = d.now ?? new Date();
   const bundle = d.learner.bundle;
   const course = studentCourse(bundle);
   const due = d.learner.repeats.due(now);
   const cards: HTMLElement[] = [];
+  if (d.school?.role === "teacher") {
+    const groups = d.school.dashboard?.groups ?? [];
+    const waiting = (d.school.dashboard?.homework ?? []).reduce((n, h) => n + (h.submissions?.length ?? 0), 0);
+    cards.push(
+      el(
+        "a",
+        { class: "card section-card teacher-card", href: "/teacher", "data-link": "", "data-section": "teacher" },
+        el("h2", {}, "Кабинет преподавателя"),
+        el("p", {}, groups.length ? `Групп: ${groups.length}. Сданных файлов: ${waiting}.` : "Создайте первую группу и пригласите учеников."),
+        el("span", { class: "card-action" }, "Открыть →"),
+      ),
+    );
+  }
 
   if (bundle.moonbridge && course) {
     const state = migrateState(await d.kv.get("moonbridge"));
@@ -35,6 +59,7 @@ export async function renderToday(root: HTMLElement, d: { profile: Profile; lear
       ),
     );
   }
+  if (d.school?.role === "student" && d.school.dashboard) cards.push(...studentCards(d.school.dashboard, now));
   cards.push(
     el(
       "div",
@@ -42,8 +67,10 @@ export async function renderToday(root: HTMLElement, d: { profile: Profile; lear
       el("h2", {}, "Повторение"),
       el("p", {}, due.length ? `Сегодня вернутся ${due.length} ${plural(due.length, "тема", "темы", "тем")} с ошибками.` : "Сегодня повторять нечего."),
     ),
-    el("div", { class: "card muted-card" }, el("h2", {}, "Расписание и домашка"), el("p", { class: "muted" }, "Появятся, когда преподаватель добавит вас в группу.")),
   );
+  if (!d.school) {
+    cards.push(el("div", { class: "card muted-card" }, el("h2", {}, "Расписание и домашка"), el("p", { class: "muted" }, "Появятся, когда вы войдёте по приглашению преподавателя.")));
+  }
 
   root.replaceChildren(
     el(
@@ -52,6 +79,7 @@ export async function renderToday(root: HTMLElement, d: { profile: Profile; lear
       el("header", { class: "platform-head" }, el("div", { class: "brand" }, "Школа английского"), el("h1", {}, `${greeting(now)}, ${d.profile.name}`)),
       el("h2", { class: "today-title" }, "Сегодня"),
       ...cards,
+      ...(d.school ? [el("button", { class: "link sign-out", type: "button", onclick: d.school.onSignOut }, "Выйти")] : []),
     ),
   );
 }

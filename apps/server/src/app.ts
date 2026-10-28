@@ -13,6 +13,9 @@ import { buildAuthRedirect, LtiError, verifyLaunch, type LoginRequest, type Logi
 import type { PlatformRegistry } from "./lti/platforms.js";
 import type { ProgressStore } from "./progress.js";
 import type { ScoreStore } from "./scores.js";
+import type { FileStore } from "./school/files.js";
+import { schoolRoutes } from "./school/routes.js";
+import type { SchoolStore } from "./school/store.js";
 import type { Session, SessionTokens } from "./session.js";
 
 export interface AppDeps {
@@ -27,6 +30,8 @@ export interface AppDeps {
   scores: ScoreStore;
   progress: ProgressStore;
   toolKeys: ToolKeys;
+  /** Accounts, groups, homework and hand-in files. Without it the gateway serves guests and LMS launches only. */
+  school?: { store: SchoolStore; files: FileStore; now?: () => Date };
 }
 
 declare module "fastify" {
@@ -120,8 +125,13 @@ export async function buildApp(d: AppDeps): Promise<FastifyInstance> {
       registration: s.registration,
       xapi_base_iri: profile.baseIri,
       lti: s.lti ? { module_id: s.lti.moduleId ?? null, grades: Boolean(s.lti.ags) } : null,
+      account: s.account ?? null,
     };
   });
+
+  if (d.school) {
+    await schoolRoutes(app, { config: d.config, tokens: d.tokens, school: d.school.store, files: d.school.files, ...(d.school.now ? { now: d.school.now } : {}) });
+  }
 
   // ---------- xAPI intake: the client's offline queue drains here, the server outbox delivers to the LRS.
   app.post<{ Body: unknown }>("/xapi/statements", { preHandler: requireSession }, async (req, reply) => {
