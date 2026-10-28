@@ -157,3 +157,10 @@ function round4(n: number): number {
 function stripUndefined<T extends object>(o: T): T {
   return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
 }
+
+/** The inverse of isoDuration for the durations this profile writes (hours, minutes, seconds). */
+export function parseIsoDuration(d: string | undefined): number | undefined {
+  const m = d ? /^PT(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?$/.exec(d) : null;
+  if (!m) return undefined;
+  return Math.round((Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0)) * 1000);
+}

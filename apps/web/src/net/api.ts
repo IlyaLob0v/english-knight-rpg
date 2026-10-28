@@ -31,6 +31,38 @@ export interface SubmissionView {
   mime: string;
   size: number;
   submitted_at: string;
+  /** The teacher's grade (1–5) and comment; null until the teacher has looked at this file. */
+  review: { grade: number; comment: string; reviewed_at: string } | null;
+}
+
+/** A student's practice in a week, from their answers. */
+export interface PracticeView {
+  /** Moscow dates (YYYY-MM-DD) with practice. */
+  days: string[];
+  answers: number;
+  minutes: number;
+  /** First-try accuracy in per cent; null without answers. */
+  accuracy: number | null;
+  errors: { error_type: string; label: string; count: number }[];
+  modes: { mode: string; answers: number; right: number }[];
+  last_answered_at: string | null;
+}
+
+export interface GroupProgress {
+  week: { from: string; to: string };
+  students: { id: string; name: string; week: PracticeView; homework_open: number }[];
+}
+
+export interface StudentReport {
+  student: { id: string; name: string };
+  week: { from: string; to: string };
+  practice: PracticeView;
+  previous: { days: number; accuracy: number | null };
+  homework: HomeworkView[];
+}
+
+export interface QueueItem extends SubmissionView {
+  homework_title: string;
 }
 
 export interface GroupView {
@@ -156,6 +188,27 @@ export class Api {
 
   createHomework(token: string, groupId: string, hw: NewHomework) {
     return this.json<{ homework: HomeworkView }>(`/school/groups/${groupId}/homework`, { method: "POST", body: JSON.stringify(hw) }, token);
+  }
+
+  groupProgress(token: string, groupId: string) {
+    return this.json<GroupProgress>(`/school/groups/${groupId}/progress`, {}, token);
+  }
+
+  /** The weekly report on a student; `week` is any Moscow date in the week, the current week by default. */
+  studentReport(token: string, accountId: string, week?: string) {
+    return this.json<StudentReport>(`/school/students/${accountId}/report${week ? `?week=${week}` : ""}`, {}, token);
+  }
+
+  reviewQueue(token: string) {
+    return this.json<{ submissions: QueueItem[] }>("/school/review-queue", {}, token);
+  }
+
+  review(token: string, submissionId: string, grade: number, comment: string) {
+    return this.json<{ submission: SubmissionView }>(`/school/submissions/${submissionId}/review`, { method: "POST", body: JSON.stringify({ grade, comment }) }, token);
+  }
+
+  resetPassword(token: string, accountId: string) {
+    return this.json<{ login: string; password: string }>(`/school/students/${accountId}/password`, { method: "POST" }, token);
   }
 
   /** A short-lived link to a handed-in file, which the browser opens as an ordinary download. */

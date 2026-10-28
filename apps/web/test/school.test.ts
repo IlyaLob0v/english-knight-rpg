@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Dashboard, GroupView } from "../src/net/api.js";
 import { nextLesson, openHomework, scheduleText, when } from "../src/platform/school.js";
+import { addDays } from "../src/platform/report.js";
 import { moscowInputToIso } from "../src/platform/teacher.js";
 
 const group = (schedule: GroupView["schedule"], name = "A1 вечер"): GroupView => ({ group_id: name, name, teacher_name: "Ксения", call_url: null, schedule });
@@ -61,9 +62,17 @@ describe("homework", () => {
       due_at: null,
       needs_file,
       created_at: "2026-11-30T09:00:00Z",
-      submission: submitted ? { submission_id: "s", account_id: "a", student_name: "Анна", file_name: "x.m4a", mime: "audio/mp4", size: 1, submitted_at: "2026-11-30T10:00:00Z" } : null,
+      submission: submitted ? { submission_id: "s", account_id: "a", student_name: "Анна", file_name: "x.m4a", mime: "audio/mp4", size: 1, submitted_at: "2026-11-30T10:00:00Z", review: null } : null,
     });
     const d: Dashboard = { account: { id: "a", name: "Анна", role: "student", login: "anna" }, groups: [], homework: [hw("open", true, false), hw("done", true, true), hw("in-class", false, false)] };
     expect(openHomework(d).map((h) => h.homework_id)).toEqual(["open"]);
+  });
+});
+
+describe("the weekly report", () => {
+  it("steps through Moscow dates by day and by week", () => {
+    expect(addDays("2026-11-30", 6)).toBe("2026-12-06");
+    expect(addDays("2026-12-07", -7)).toBe("2026-11-30");
+    expect(addDays("2026-12-28", 7)).toBe("2027-01-04");
   });
 });

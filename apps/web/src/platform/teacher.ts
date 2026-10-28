@@ -1,11 +1,12 @@
-import { ApiError, type Api, type Dashboard, type GroupView, type HomeworkView, type SlotView } from "../net/api.js";
+import { ApiError, type Api, type Dashboard, type GroupProgress, type GroupView, type HomeworkView, type QueueItem, type SlotView } from "../net/api.js";
 import type { KeyValue } from "../storage/idb.js";
 import { el } from "../ui/dom.js";
+import { weekDots } from "./report.js";
 import { fileSize, loadDashboard, scheduleText, when } from "./school.js";
 
-// The teacher's cabinet, first version: groups with their schedule and call link, the
-// invitation link, homework for the group and the files students handed in. Grading and
-// comments on the files come with the review queue.
+// The teacher's cabinet: the files waiting for a grade, then each group with its students'
+// week (days with practice, first-try accuracy, the most frequent error), the invitation
+// link and the homework. A student's name opens the weekly report on them.
 
 export interface TeacherDeps {
   api: Api;
@@ -34,19 +35,140 @@ export async function renderTeacher(root: HTMLElement, d: TeacherDeps): Promise<
   const now = d.now ?? new Date();
   const rerender = () => void renderTeacher(root, d);
   const groups = dash?.groups ?? [];
+  // Online only: the queue and the students' week are not kept on the device.
+  const [queue, progress] = d.token
+    ? await Promise.all([
+        d.api.reviewQueue(d.token).then((r) => r.submissions, () => undefined),
+        Promise.all(groups.map((g) => d.api.groupProgress(d.token!, g.group_id).catch(() => undefined))),
+      ])
+    : [undefined, []];
   root.replaceChildren(
     el(
       "div",
       { class: "teacher" },
       el("header", { class: "section-head" }, el("a", { href: "/", "data-link": "", class: "back" }, "← Сегодня"), el("h1", {}, "Кабинет преподавателя")),
       ...(d.token ? [] : [el("p", { class: "form-error" }, "Нет связи с сервером: показано то, что было при последнем входе.")]),
-      ...groups.map((g) => groupCard(g, dash!, now, d, rerender)),
+      ...(queue ? [reviewQueue(queue, d, rerender)] : []),
+      ...groups.map((g, i) => groupCard(g, dash!, progress[i], now, d, rerender)),
       newGroupForm(d, rerender, groups.length === 0),
     ),
   );
 }
 
-function groupCard(g: GroupView, dash: Dashboard, now: Date, d: TeacherDeps, rerender: () => void): HTMLElement {
+/** Files waiting for a grade, the oldest first: listen or look, give 1–5 and a comment. */
+function reviewQueue(queue: QueueItem[], d: TeacherDeps, rerender: () => void): HTMLElement {
+  if (!queue.length) {
+    return el("section", { class: "card review-queue", "data-queue": "0" }, el("h2", {}, "Проверка"), el("p", { class: "muted" }, "Все сданные файлы проверены."));
+  }
+  return el(
+    "section",
+    { class: "card review-queue", "data-queue": String(queue.length) },
+    el("h2", {}, `Проверка: ${queue.length}`),
+    ...queue.map((s) => reviewItem(s, d, rerender)),
+  );
+}
+
+function reviewItem(s: QueueItem, d: TeacherDeps, rerender: () => void): HTMLElement {
+  const preview = el("div", { class: "preview" });
+  const open = el("button", { type: "button", "data-open": s.submission_id }, "Открыть файл") as HTMLButtonElement;
+  open.addEventListener("click", async () => {
+    if (!d.token) return;
+    open.disabled = true;
+    try {
+      const url = await d.api.submissionLink(d.token, s.submission_id);
+      const kind = s.mime.split("/")[0];
+      // Recordings and photos open right here; anything else downloads.
+      const media =
+        kind === "audio" ? el("audio", { controls: "", src: url, preload: "metadata" }) :
+        kind === "image" ? el("img", { src: url, alt: s.file_name }) :
+        kind === "video" ? el("video", { controls: "", src: url, preload: "metadata", playsinline: "" }) :
+        undefined;
+      preview.replaceChildren(...(media ? [media] : []), el("a", { href: url, class: "muted" }, `Скачать ${s.file_name}`));
+    } catch (e) {
+      preview.replaceChildren(el("p", { class: "form-error" }, messageOf(e)));
+      open.disabled = false;
+    }
+  });
+  const grades = el("div", { class: "grades", role: "radiogroup", "aria-label": "Оценка" });
+  let grade = 0;
+  const save = el("button", { class: "primary", type: "submit", disabled: "" }, "Сохранить оценку") as HTMLButtonElement;
+  for (let g = 5; g >= 1; g--) {
+    const b = el("button", { type: "button", class: "grade", role: "radio", "aria-checked": "false", "data-grade": String(g) }, String(g)) as HTMLButtonElement;
+    b.addEventListener("click", () => {
+      grade = g;
+      grades.querySelectorAll("button").forEach((x) => x.setAttribute("aria-checked", String(x === b)));
+      save.disabled = false;
+    });
+    grades.append(b);
+  }
+  const comment = el("textarea", { class: "answer", rows: "2", maxlength: "4000", "aria-label": "Комментарий", placeholder: "Что получилось, над чем поработать" }) as HTMLTextAreaElement;
+  const error = el("p", { class: "form-error", role: "alert" });
+  const form = el(
+    "form",
+    {
+      class: "review-form",
+      onsubmit: async (e: Event) => {
+        e.preventDefault();
+        if (!d.token || !grade) return;
+        save.disabled = true;
+        try {
+          await d.api.review(d.token, s.submission_id, grade, comment.value.trim());
+          rerender();
+        } catch (err) {
+          error.textContent = messageOf(err);
+          save.disabled = false;
+        }
+      },
+    },
+    grades,
+    comment,
+    error,
+    save,
+  );
+  return el(
+    "div",
+    { class: "review-item", "data-review": s.submission_id },
+    el("p", {}, el("b", {}, s.student_name), ` · ${s.homework_title}`),
+    el("p", { class: "muted" }, `${s.file_name}, ${fileSize(s.size)}, сдано ${when(new Date(s.submitted_at), new Date())}`),
+    open,
+    preview,
+    form,
+  );
+}
+
+/** The group's students this week; a name opens the weekly report. */
+function studentsTable(progress: GroupProgress): HTMLElement {
+  if (!progress.students.length) return el("p", {}, "Учеников пока нет");
+  return el(
+    "ul",
+    { class: "students" },
+    ...progress.students.map((s) =>
+      el(
+        "li",
+        {},
+        el(
+          "a",
+          { href: `/teacher/student/${s.id}`, "data-link": "", "data-student": s.id },
+          el("span", { class: "student-name" }, s.name),
+          weekDots(progress.week.from, s.week.days),
+          el(
+            "span",
+            { class: "muted" },
+            [
+              s.week.accuracy === null ? "нет ответов" : `${s.week.accuracy}% с первого раза`,
+              s.week.errors[0] ? `чаще всего: ${s.week.errors[0].label.toLowerCase()}` : undefined,
+              s.homework_open ? `не сдано: ${s.homework_open}` : undefined,
+            ]
+              .filter(Boolean)
+              .join(" · "),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+function groupCard(g: GroupView, dash: Dashboard, progress: GroupProgress | undefined, now: Date, d: TeacherDeps, rerender: () => void): HTMLElement {
   const members = g.members ?? [];
   const inviteBox = el("div", { class: "invite" });
   const inviteButton = el("button", { type: "button", "data-invite": g.group_id }, "Пригласить ученика") as HTMLButtonElement;
@@ -80,7 +202,8 @@ function groupCard(g: GroupView, dash: Dashboard, now: Date, d: TeacherDeps, rer
     el("h2", {}, g.name),
     el("p", { class: "muted" }, scheduleText(g.schedule)),
     ...(g.call_url ? [el("p", { class: "muted" }, "Звонок: ", el("a", { href: g.call_url, target: "_blank", rel: "noopener" }, g.call_url))] : []),
-    el("p", { "data-members": String(members.length) }, members.length ? `Ученики (${members.length}): ${members.map((m) => m.name).join(", ")}` : "Учеников пока нет"),
+    el("h3", { "data-members": String(members.length) }, `Ученики: ${members.length}`),
+    progress ? studentsTable(progress) : el("p", {}, members.length ? members.map((m) => m.name).join(", ") : "Учеников пока нет"),
     inviteButton,
     inviteBox,
     el("h3", {}, "Домашка"),
@@ -97,7 +220,11 @@ function homeworkItem(h: HomeworkView, members: number, now: Date, d: TeacherDep
     el("p", { class: "hw-title" }, h.title),
     el("p", { class: "muted" }, [h.due_at ? `до ${when(new Date(h.due_at), now)}` : "без срока", h.needs_file ? `сдали ${subs.length} из ${members}` : "без файла"].join(" · ")),
     ...subs.map((s) => {
-      const open = el("button", { type: "button", class: "link", "data-submission": s.submission_id }, `${s.student_name}: ${s.file_name} (${fileSize(s.size)})`) as HTMLButtonElement;
+      const open = el(
+        "button",
+        { type: "button", class: "link", "data-submission": s.submission_id },
+        `${s.student_name}: ${s.file_name} (${fileSize(s.size)})${s.review ? `, оценка ${s.review.grade}` : ", ждёт проверки"}`,
+      ) as HTMLButtonElement;
       open.addEventListener("click", async () => {
         if (!d.token) return;
         try {

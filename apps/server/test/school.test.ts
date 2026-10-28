@@ -6,7 +6,8 @@ import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { migrate, type Sql } from "../src/db/sql.js";
 import { DiskFileStore } from "../src/school/files.js";
-import { acceptedType, MAX_UPLOAD_BYTES } from "../src/school/routes.js";
+import { StatementBuilder, XapiProfile } from "@moonbridge/xapi";
+import { acceptedType, MAX_UPLOAD_BYTES, weekStart } from "../src/school/routes.js";
 import { SchoolStore } from "../src/school/store.js";
 import { harness } from "./harness.js";
 
@@ -29,7 +30,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   clock = new Date("2026-11-30T09:00:00Z");
-  await sql.exec("TRUNCATE accounts, school_groups, group_members, invites, homework, submissions, player_progress CASCADE");
+  await sql.exec("TRUNCATE accounts, school_groups, group_members, invites, homework, submissions, player_progress, attempts CASCADE");
 });
 
 async function school() {
@@ -265,5 +266,126 @@ describe("hand-in files", () => {
     expect(acceptedType("audio/x-m4a", "x")).toBe("audio/x-m4a");
     expect(acceptedType("application/pdf", "essay")).toBe("application/pdf");
     expect(acceptedType("application/zip", "homework.zip")).toBeUndefined();
+  });
+});
+
+/** A signed-in student's answers, sent the way the platform sends them. */
+async function answer(app: FastifyInstance, student: { token: string; player_id: string }, answers: { at: string; success: boolean; errorType?: string; attempt?: number; mode?: string }[]) {
+  const b = new StatementBuilder(new XapiProfile("https://moonbridge.example.com"));
+  const statements = answers.map((a) =>
+    b.answered({
+      playerId: student.player_id,
+      taskId: "A1_T1",
+      moduleId: "A1_Unit_01",
+      conceptId: "to_be.i_am",
+      interactionType: "fill-in",
+      correctResponses: ["am"],
+      response: a.success ? "am" : "is",
+      success: a.success,
+      ...(a.errorType ? { errorType: a.errorType } : {}),
+      hintUsed: false,
+      attempt: a.attempt ?? 1,
+      durationMs: 30_000,
+      timestamp: new Date(a.at),
+      ...(a.mode ? { gameContext: { mode: a.mode } } : {}),
+    }),
+  );
+  const res = await app.inject({ method: "POST", url: "/xapi/statements", headers: auth(student.token), payload: statements });
+  expect(res.statusCode).toBe(202);
+  return statements;
+}
+
+describe("the teacher's cabinet", () => {
+  it("counts each student's week from their answers: days in Moscow, first-try accuracy, frequent errors", async () => {
+    const app = await school();
+    const t = await teacher(app);
+    const { groupId, code } = await groupWithInvite(app, t);
+    const anna = (await joinGroup(app, code)).json();
+    const boris = (await joinGroup(app, code, "boris")).json();
+    const sent = await answer(app, anna, [
+      { at: "2026-11-23T10:00:00Z", success: true }, // the week before
+      { at: "2026-11-30T20:59:00Z", success: false, errorType: "grammar.agreement", mode: "moonbridge_episode" }, // Mon 23:59 Moscow
+      { at: "2026-11-30T21:01:00Z", success: true, attempt: 2 }, // Tue 00:01 Moscow
+      { at: "2026-12-02T08:00:00Z", success: true, mode: "lost_and_found" },
+      { at: "2026-12-02T08:01:00Z", success: false, errorType: "grammar.agreement", mode: "lost_and_found" },
+      { at: "2026-12-02T08:02:00Z", success: true },
+    ]);
+    // A resend from the offline queue changes nothing.
+    await app.inject({ method: "POST", url: "/xapi/statements", headers: auth(anna.token), payload: sent });
+
+    const progress = (await app.inject({ url: `/school/groups/${groupId}/progress`, headers: auth(t) })).json();
+    expect(progress.week).toEqual({ from: "2026-11-30", to: "2026-12-06" });
+    const a = progress.students.find((x: { id: string }) => x.id === anna.account.id);
+    expect(a.week.days).toEqual(["2026-11-30", "2026-12-01", "2026-12-02"]);
+    expect(a.week.answers).toBe(5);
+    expect(a.week.accuracy).toBe(50); // 2 of 4 first tries
+    expect(a.week.errors).toEqual([{ error_type: "grammar.agreement", label: "Согласование подлежащего и сказуемого", count: 2 }]);
+    expect(a.week.modes).toContainEqual({ mode: "lost_and_found", answers: 2, right: 1 });
+    const b = progress.students.find((x: { id: string }) => x.id === boris.account.id);
+    expect(b.week).toMatchObject({ days: [], answers: 0, accuracy: null });
+
+    const report = (await app.inject({ url: `/school/students/${anna.account.id}/report`, headers: auth(t) })).json();
+    expect(report.practice.days).toHaveLength(3);
+    expect(report.previous).toEqual({ days: 1, accuracy: 100 });
+    const lastWeek = (await app.inject({ url: `/school/students/${anna.account.id}/report?week=2026-11-25`, headers: auth(t) })).json();
+    expect(lastWeek.week).toEqual({ from: "2026-11-23", to: "2026-11-29" });
+    expect(lastWeek.practice.answers).toBe(1);
+  });
+
+  it("shows the student their own report and nobody else's", async () => {
+    const app = await school();
+    const t = await teacher(app);
+    const { code } = await groupWithInvite(app, t);
+    const anna = (await joinGroup(app, code)).json();
+    const boris = (await joinGroup(app, code, "boris")).json();
+    expect((await app.inject({ url: `/school/students/${anna.account.id}/report`, headers: auth(anna.token) })).statusCode).toBe(200);
+    expect((await app.inject({ url: `/school/students/${anna.account.id}/report`, headers: auth(boris.token) })).statusCode).toBe(404);
+    await app.inject({ method: "POST", url: "/admin/teachers", headers: auth("admin-secret"), payload: { name: "Другой", login: "other", password: "teach-123" } });
+    const other = (await app.inject({ method: "POST", url: "/auth/login", payload: { login: "other", password: "teach-123" } })).json().token;
+    expect((await app.inject({ url: `/school/students/${anna.account.id}/report`, headers: auth(other) })).statusCode).toBe(404);
+  });
+
+  it("queues hand-ins for review; the grade and comment reach the student; a new file waits for a new review", async () => {
+    const app = await school();
+    const t = await teacher(app);
+    const { groupId, code } = await groupWithInvite(app, t);
+    const anna = (await joinGroup(app, code)).json();
+    const hw = await homework(app, t, groupId);
+    const id = (await upload(app, anna.token, hw, Buffer.from("voice"))).json().submission.submission_id;
+
+    const queue = (await app.inject({ url: "/school/review-queue", headers: auth(t) })).json().submissions;
+    expect(queue).toMatchObject([{ submission_id: id, student_name: "Анна", homework_title: "Расскажи о себе", review: null }]);
+    expect((await app.inject({ method: "POST", url: `/school/submissions/${id}/review`, headers: auth(anna.token), payload: { grade: 5 } })).statusCode).toBe(403);
+    expect((await app.inject({ method: "POST", url: `/school/submissions/${id}/review`, headers: auth(t), payload: { grade: 6 } })).statusCode).toBe(400);
+
+    const reviewed = await app.inject({ method: "POST", url: `/school/submissions/${id}/review`, headers: auth(t), payload: { grade: 4, comment: "Хорошо! Следи за am/is." } });
+    expect(reviewed.json().submission.review).toEqual({ grade: 4, comment: "Хорошо! Следи за am/is.", reviewed_at: clock.toISOString() });
+    expect((await app.inject({ url: "/school/review-queue", headers: auth(t) })).json().submissions).toEqual([]);
+    const mine = (await app.inject({ url: "/school/dashboard", headers: auth(anna.token) })).json().homework[0].submission;
+    expect(mine.review).toMatchObject({ grade: 4, comment: "Хорошо! Следи за am/is." });
+    const report = (await app.inject({ url: `/school/students/${anna.account.id}/report`, headers: auth(t) })).json();
+    expect(report.homework[0].submission.review.grade).toBe(4);
+
+    await upload(app, anna.token, hw, Buffer.from("voice, take two"));
+    expect((await app.inject({ url: "/school/review-queue", headers: auth(t) })).json().submissions).toHaveLength(1);
+    expect((await app.inject({ url: "/school/dashboard", headers: auth(anna.token) })).json().homework[0].submission.review).toBeNull();
+  });
+
+  it("lets the student's teacher set a new password, and nobody else", async () => {
+    const app = await school();
+    const t = await teacher(app);
+    const { code } = await groupWithInvite(app, t);
+    const anna = (await joinGroup(app, code)).json();
+    expect((await app.inject({ method: "POST", url: `/school/students/${anna.account.id}/password`, headers: auth(anna.token) })).statusCode).toBe(403);
+    const reset = (await app.inject({ method: "POST", url: `/school/students/${anna.account.id}/password`, headers: auth(t) })).json();
+    expect(reset.login).toBe("anna");
+    expect(reset.password).toMatch(/^[a-z2-9]{10}$/);
+    expect((await app.inject({ method: "POST", url: "/auth/login", payload: { login: "anna", password: "secret-1" } })).statusCode).toBe(401);
+    expect((await app.inject({ method: "POST", url: "/auth/login", payload: { login: "anna", password: reset.password } })).statusCode).toBe(200);
+  });
+
+  it("starts the week on Monday in Moscow", () => {
+    expect(weekStart(new Date("2026-12-06T20:59:00Z")).toISOString()).toBe("2026-11-29T21:00:00.000Z"); // Sun 23:59 MSK
+    expect(weekStart(new Date("2026-12-06T21:00:00Z")).toISOString()).toBe("2026-12-06T21:00:00.000Z"); // Mon 00:00 MSK
   });
 });

@@ -6,13 +6,15 @@ import type { ServerConfig } from "../config.js";
 import type { Session, SessionTokens } from "../session.js";
 import { FileTooLargeError, type FileStore } from "./files.js";
 import { DUMMY_HASH, hashPassword, verifyPassword } from "./passwords.js";
-import { LoginTakenError, type Account, type Group, type Homework, type SchoolStore, type Submission } from "./store.js";
+import { LoginTakenError, type Account, type Group, type Homework, type PracticeSummary, type SchoolStore, type Submission } from "./store.js";
 
 export interface SchoolDeps {
   config: ServerConfig;
   tokens: SessionTokens;
   school: SchoolStore;
   files: FileStore;
+  /** The Russian label of an error type, from the live content's taxonomy. */
+  errorLabel?: (errorTypeId: string) => string | undefined;
   now?: () => Date;
 }
 
@@ -116,6 +118,7 @@ const submissionView = (s: Submission) => ({
   mime: s.mime,
   size: s.size,
   submitted_at: s.submittedAt.toISOString(),
+  review: s.review ? { grade: s.review.grade, comment: s.review.comment, reviewed_at: s.review.reviewedAt.toISOString() } : null,
 });
 const homeworkView = (h: Homework) => ({
   homework_id: h.homeworkId,
@@ -126,6 +129,18 @@ const homeworkView = (h: Homework) => ({
   needs_file: h.needsFile,
   created_at: h.createdAt.toISOString(),
 });
+const MSK_MS = 3 * 3600_000;
+const DAY_MS = 24 * 3600_000;
+
+/** Monday 00:00 in Moscow of the week that holds `at` (Moscow has no daylight saving time). */
+export function weekStart(at: Date): Date {
+  const local = new Date(at.getTime() + MSK_MS);
+  const monday = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) - ((local.getUTCDay() + 6) % 7) * DAY_MS;
+  return new Date(monday - MSK_MS);
+}
+
+const moscowDate = (at: Date) => new Date(at.getTime() + MSK_MS).toISOString().slice(0, 10);
+
 const groupView = (g: Group) => ({ group_id: g.groupId, name: g.name, teacher_name: g.teacherName, call_url: g.callUrl, schedule: g.schedule });
 
 /**
@@ -259,6 +274,121 @@ export async function schoolRoutes(app: FastifyInstance, d: SchoolDeps): Promise
     };
   });
 
+  /** The submission, if this account may open it: the student who sent it or the group's teacher. */
+  const visibleSubmission = async (submissionId: string, a: Account): Promise<Submission | undefined> => {
+    const s = await d.school.submission(submissionId);
+    const h = s && (await d.school.homework(s.homeworkId));
+    const g = h && (await d.school.group(h.groupId));
+    return s && g && (s.accountId === a.accountId || g.teacherId === a.accountId) ? s : undefined;
+  };
+  // ---------- Teacher: practice, reports, the review queue
+  const practiceView = (p: PracticeSummary) => ({
+    days: p.days,
+    answers: p.answers,
+    minutes: p.minutes,
+    accuracy: p.firstTries ? Math.round((p.firstTriesRight / p.firstTries) * 100) : null,
+    errors: p.errors.map((e) => ({ error_type: e.errorType, label: d.errorLabel?.(e.errorType) ?? e.errorType, count: e.count })),
+    modes: p.modes,
+    last_answered_at: p.lastAnsweredAt?.toISOString() ?? null,
+  });
+
+  /** The student, if the signed-in account may see their progress: the student themself or one of their teachers. */
+  const visibleStudent = async (req: FastifyRequest, studentId: string): Promise<Account | undefined> => {
+    const a = req.account!;
+    const student = await d.school.accountById(studentId);
+    if (!student || student.role !== "student") return undefined;
+    if (a.accountId === student.accountId) return student;
+    return a.role === "teacher" && (await d.school.teaches(a.accountId, student.accountId)) ? student : undefined;
+  };
+
+  /** Each student of the group this week: days with practice, first-try accuracy, the most frequent error, open homework. */
+  app.get<{ Params: { id: string } }>("/school/groups/:id/progress", { preHandler: requireTeacher }, async (req, reply) => {
+    const g = await ownGroup(req, reply);
+    if (!g) return;
+    const from = weekStart(now());
+    const to = new Date(from.getTime() + 7 * DAY_MS);
+    const homework = (await d.school.homeworkOf([g.groupId])).filter((h) => h.needsFile);
+    const handedIn = await d.school.submissionsFor(homework.map((h) => h.homeworkId));
+    const students = await Promise.all(
+      (await d.school.members(g.groupId)).map(async (m) => ({
+        id: m.accountId,
+        name: m.name,
+        week: practiceView(await d.school.practice(m.playerId, from, to)),
+        homework_open: homework.filter((h) => !handedIn.some((s) => s.homeworkId === h.homeworkId && s.accountId === m.accountId)).length,
+      })),
+    );
+    return { week: { from: moscowDate(from), to: moscowDate(new Date(to.getTime() - DAY_MS)) }, students };
+  });
+
+  /**
+   * The weekly report on one student, built from their answers and hand-ins: what the teacher
+   * reads before the lesson and the student sees about themself. `week` is any date in the
+   * week (Moscow); the current week by default.
+   */
+  app.get<{ Params: { id: string }; Querystring: { week?: string } }>("/school/students/:id/report", { preHandler: requireAccount }, async (req, reply) => {
+    const student = await visibleStudent(req, req.params.id);
+    if (!student) return reply.code(404).send({ error: "no such student" });
+    const asked = req.query.week && /^\d{4}-\d{2}-\d{2}$/.test(req.query.week) ? new Date(`${req.query.week}T12:00:00+03:00`) : now();
+    const from = weekStart(asked);
+    const to = new Date(from.getTime() + 7 * DAY_MS);
+    const before = new Date(from.getTime() - 7 * DAY_MS);
+    const groups = await d.school.groupsOf(student);
+    const homework = (await d.school.homeworkOf(groups.map((g) => g.groupId))).filter((h) => {
+      const at = h.dueAt ?? h.createdAt;
+      return at >= from && at < to;
+    });
+    const mine = await d.school.submissionsFor(homework.map((h) => h.homeworkId), student.accountId);
+    const previous = practiceView(await d.school.practice(student.playerId, before, from));
+    return {
+      student: { id: student.accountId, name: student.name },
+      week: { from: moscowDate(from), to: moscowDate(new Date(to.getTime() - DAY_MS)) },
+      practice: practiceView(await d.school.practice(student.playerId, from, to)),
+      previous: { days: previous.days.length, accuracy: previous.accuracy },
+      homework: homework.map((h) => {
+        const s = mine.find((x) => x.homeworkId === h.homeworkId);
+        return { ...homeworkView(h), submission: s ? submissionView(s) : null };
+      }),
+    };
+  });
+
+  app.get("/school/review-queue", { preHandler: requireTeacher }, async (req) => {
+    const queue = await d.school.reviewQueue(req.account!.accountId);
+    const homework = new Map((await Promise.all([...new Set(queue.map((s) => s.homeworkId))].map((id) => d.school.homework(id)))).filter((h): h is Homework => !!h).map((h) => [h.homeworkId, h]));
+    return { submissions: queue.map((s) => ({ ...submissionView(s), homework_title: homework.get(s.homeworkId)?.title ?? "" })) };
+  });
+
+  app.post<{ Params: { id: string }; Body: { grade: number; comment?: string } }>(
+    "/school/submissions/:id/review",
+    {
+      preHandler: requireTeacher,
+      schema: {
+        body: {
+          type: "object",
+          required: ["grade"],
+          additionalProperties: false,
+          properties: { grade: { type: "integer", minimum: 1, maximum: 5 }, comment: { type: "string", maxLength: 4000 } },
+        },
+      },
+    },
+    async (req, reply) => {
+      const s = await visibleSubmission(req.params.id, req.account!);
+      // Only the group's teacher reviews; the student who sent the file may see it but not grade it.
+      if (!s || s.accountId === req.account!.accountId) return reply.code(404).send({ error: "not found" });
+      const reviewed = await d.school.review(s.submissionId, req.body.grade, (req.body.comment ?? "").trim(), now());
+      return { submission: submissionView(reviewed!) };
+    },
+  );
+
+  /** A student forgot the password: their teacher sets a new one-off password and tells it to them. */
+  app.post<{ Params: { id: string } }>("/school/students/:id/password", { preHandler: requireTeacher }, async (req, reply) => {
+    const student = await visibleStudent(req, req.params.id);
+    if (!student) return reply.code(404).send({ error: "no such student" });
+    const alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
+    const password = [...crypto.getRandomValues(new Uint8Array(10))].map((b) => alphabet[b % alphabet.length]).join("");
+    await d.school.setPassword(student.accountId, await hashPassword(password));
+    return { login: student.login, password };
+  });
+
   // ---------- Teacher: groups, invitations, homework
   app.post<{ Body: Required<Pick<GroupBody, "name">> & GroupBody }>(
     "/school/groups",
@@ -358,13 +488,6 @@ export async function schoolRoutes(app: FastifyInstance, d: SchoolDeps): Promise
     });
   });
 
-  /** The submission, if this account may open it: the student who sent it or the group's teacher. */
-  const visibleSubmission = async (submissionId: string, a: Account): Promise<Submission | undefined> => {
-    const s = await d.school.submission(submissionId);
-    const h = s && (await d.school.homework(s.homeworkId));
-    const g = h && (await d.school.group(h.groupId));
-    return s && g && (s.accountId === a.accountId || g.teacherId === a.accountId) ? s : undefined;
-  };
   const linkKey = new TextEncoder().encode(`file-link:${d.config.sessionSecret}`);
 
   /**

@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 import { validateContent, type ContentBundle, type ContentSource } from "@moonbridge/content";
 import { buildBundle } from "@moonbridge/content/node";
-import { XapiProfile, Outbox, validateStatement, type Statement } from "@moonbridge/xapi";
+import { attemptOf, XapiProfile, Outbox, validateStatement, type Attempt, type Statement } from "@moonbridge/xapi";
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import type { ServerConfig } from "./config.js";
 import { contextKey, type GradeOutcome, type GradeSync } from "./grades.js";
@@ -130,7 +130,14 @@ export async function buildApp(d: AppDeps): Promise<FastifyInstance> {
   });
 
   if (d.school) {
-    await schoolRoutes(app, { config: d.config, tokens: d.tokens, school: d.school.store, files: d.school.files, ...(d.school.now ? { now: d.school.now } : {}) });
+    await schoolRoutes(app, {
+      config: d.config,
+      tokens: d.tokens,
+      school: d.school.store,
+      files: d.school.files,
+      errorLabel: (id) => bundle.taxonomy.error_types.find((t) => t.id === id)?.label.ru,
+      ...(d.school.now ? { now: d.school.now } : {}),
+    });
   }
 
   // ---------- xAPI intake: the client's offline queue drains here, the server outbox delivers to the LRS.
@@ -151,6 +158,11 @@ export async function buildApp(d: AppDeps): Promise<FastifyInstance> {
     });
     if (rejected.length) return reply.code(400).send({ error: "invalid statements", rejected });
     const added = await d.outbox.enqueue(accepted);
+    // The teacher's cabinet reads the answers from the gateway's own table, not from the LRS.
+    if (d.school) {
+      const attempts = accepted.map((s) => attemptOf(s, profile)).filter((a): a is Attempt => a !== undefined);
+      await d.school.store.recordAttempts(attempts).catch((e) => req.log.error({ err: e }, "attempts not recorded"));
+    }
     void d.outbox.flush().catch((e) => app.log.error(e, "xAPI flush failed"));
     return reply.code(202).send({ accepted: accepted.length, new: added, ids: accepted.map((s) => s.id) });
   });

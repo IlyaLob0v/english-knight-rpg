@@ -6,7 +6,9 @@
 //   homework on Today and on the board in the Moonbridge lobby, uploads a voice memo
 //   (a file over 50 MB is refused first) and plays the unit 1 episode →
 //   on phone 2 the student signs in with the same login: the episode is still done and the
-//   homework still handed in → the teacher sees the hand-in and downloads the file.
+//   homework still handed in → the teacher sees the hand-in and downloads the file →
+//   the teacher grades it from the review queue, sees the student's week and their weekly
+//   report, and sets a new password → the student signs in with it and finds the grade.
 //
 // Run: pnpm e2e:school        (HEADED=1 to watch it)
 import { mkdir, mkdtemp, readFile, rm, truncate, writeFile } from "node:fs/promises";
@@ -164,6 +166,59 @@ async function main(): Promise<void> {
     check(disposition.includes(`filename*=UTF-8''${encodeURIComponent("Запись 1.m4a")}`), "the file goes out under the student's name");
     check((await readFile((await file.path())!)).equals(memo), "the teacher downloads exactly the student's recording");
     await teacher.screenshot({ path: `${ARTIFACTS}teacher-hand-in.png`, fullPage: true });
+
+    step("The teacher grades the file from the review queue");
+    const queue = teacher.locator('[data-queue="1"]');
+    await queue.waitFor();
+    const review = queue.locator(".review-item").first();
+    check(/Анна/.test(await review.innerText()) && /Расскажи о себе/.test(await review.innerText()), "the queue shows the student's file for the homework");
+    await review.getByRole("button", { name: "Открыть файл" }).click();
+    await review.locator(".preview audio").waitFor();
+    check(true, "the recording opens in a player right in the cabinet");
+    await review.locator('[data-grade="5"]').click();
+    await review.getByLabel("Комментарий").fill("Отлично! Только «I am from», а не «I from».");
+    await review.getByRole("button", { name: "Сохранить оценку" }).click();
+    await teacher.locator('[data-queue="0"]').waitFor();
+    check(true, "the queue is empty after the grade");
+    await teacher.screenshot({ path: `${ARTIFACTS}review-queue.png` });
+
+    step("The students' week and the weekly report");
+    const row = teacher.locator(".students [data-student]").first();
+    const days = Number(await row.locator(".week-dots").getAttribute("data-days"));
+    check(days >= 1, `the group shows Анна practised on ${days} day(s) this week`);
+    check(/% с первого раза/.test(await row.innerText()), "with her first-try accuracy");
+    await teacher.screenshot({ path: `${ARTIFACTS}teacher-week.png`, fullPage: true });
+    await row.click();
+    const report = teacher.locator("[data-report]");
+    await report.waitFor();
+    check(/Ответов: \d+/.test(await report.innerText()), "the weekly report counts her answers");
+    check(/оценка 5/.test(await report.locator(".report-homework").first().innerText()), "and lists the week's homework with its grade");
+    check(await noSideScroll(teacher), "the report fits a 390 px screen");
+    await teacher.screenshot({ path: `${ARTIFACTS}report.png`, fullPage: true });
+
+    step("A forgotten password");
+    teacher.once("dialog", (dialog) => void dialog.accept());
+    await teacher.locator("[data-reset-password]").click();
+    const fresh = (await teacher.locator("[data-new-password]").innerText()).trim();
+    check(/^[a-z2-9]{10}$/.test(fresh), "the teacher gets a new one-off password");
+    await page.goto(WEB);
+    await page.getByRole("button", { name: "Выйти" }).click();
+    const back = page.locator('[data-form="sign-in"]');
+    await back.getByLabel("Логин").fill(STUDENT.login);
+    await back.getByLabel("Пароль").fill(STUDENT.password);
+    await back.getByRole("button", { name: "Войти" }).click();
+    await back.locator(".form-error").filter({ hasText: /Неверный/ }).waitFor();
+    check(true, "the old password no longer works");
+    await back.getByLabel("Пароль").fill(fresh);
+    await back.getByRole("button", { name: "Войти" }).click();
+    await page.getByRole("heading", { name: /Анна/ }).waitFor();
+    check(await page.locator('[data-card="my-week"]').isVisible(), "the student signs in with it and sees her week on Today");
+    await page.screenshot({ path: `${ARTIFACTS}student-week.png`, fullPage: true });
+    await page.locator('[data-card="homework"] a').first().click();
+    const graded = page.locator('.review-note[data-grade="5"]');
+    await graded.waitFor();
+    check(/I am from/.test(await graded.innerText()), "and the grade with the teacher's comment in the homework");
+    await page.screenshot({ path: `${ARTIFACTS}graded.png` });
     check(errors.length === 0, `no page errors${errors.length ? `: ${errors.join("; ")}` : ""}`);
   } catch (e) {
     await page.screenshot({ path: `${ARTIFACTS}school-failure.png` }).catch(() => undefined);
