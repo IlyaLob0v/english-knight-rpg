@@ -1,0 +1,223 @@
+{
+  "$schema": "../../packages/content/schemas/task-set.schema.json",
+  "schema_version": "2.0",
+  "module_id": "A1_WhereAreYouFrom_02",
+  "tasks": [
+    {
+      "task_id": "A1_WhereAreYouFrom_02_she_is",
+      "concept_id": "to_be.he_she_it",
+      "type": "gap_fill",
+      "difficulty": 1,
+      "presentation": { "prompt": "This is Grandma Vee. She ___ from Transylvania.", "hint": "she + is" },
+      "answer": {
+        "accepted": ["is"],
+        "known_errors": [
+          { "match": ["are", "am"], "error_type": "grammar.agreement", "feedback": "С she всегда is: She is from Transylvania." },
+          { "match": ["be"], "error_type": "grammar.agreement", "feedback": "Be меняется: I am, you are, she is." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_WhereAreYouFrom_02_he",
+      "concept_id": "to_be.he_she_it",
+      "type": "choice",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "This is Lev. ___ is the lift operator.",
+        "instruction_ru": "Лев — он. Что подставить?",
+        "options": [{ "id": "a", "text": "He" }, { "id": "b", "text": "His" }, { "id": "c", "text": "Him" }]
+      },
+      "answer": {
+        "accepted": ["a"],
+        "known_errors": [
+          { "match": ["b"], "error_type": "lexis.wrong_word", "feedback": "His — «его» (чей?). Кто работает? He." },
+          { "match": ["c"], "error_type": "lexis.wrong_word", "feedback": "Him — «его, ему» (кого?). Кто работает? He." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_WhereAreYouFrom_02_is_she",
+      "concept_id": "to_be.he_she_it",
+      "type": "transform",
+      "difficulty": 2,
+      "presentation": { "prompt": "Make a question.", "instruction_ru": "Сделайте из утверждения вопрос.", "source": "She is from Spain." },
+      "answer": {
+        "accepted": ["Is she from Spain?"],
+        "known_errors": [
+          { "match": ["She is from Spain?"], "error_type": "grammar.word_order", "feedback": "В вопросе is встаёт перед she: Is she…?" },
+          {
+            "match": ["Does she from Spain?", "Does she is from Spain?"],
+            "error_type": "grammar.auxiliary",
+            "feedback": "С be вопрос строится без does: Is she from Spain?"
+          },
+          { "match": ["Are she from Spain?"], "error_type": "grammar.agreement", "feedback": "С she всегда is." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_WhereAreYouFrom_02_isnt",
+      "concept_id": "to_be.negative",
+      "type": "gap_fill",
+      "difficulty": 1,
+      "presentation": { "prompt": "Rocco is a werewolf. He ___ a vampire.", "instruction_ru": "Рокко не вампир. Вставьте отрицание." },
+      "answer": {
+        "accepted": ["isn't", "is not"],
+        "known_errors": [
+          { "match": ["not", "no"], "error_type": "grammar.auxiliary", "feedback": "Без глагола нельзя: he isn't (= is not)." },
+          { "match": ["aren't"], "error_type": "grammar.agreement", "feedback": "С he: isn't." },
+          { "match": ["doesn't", "don't"], "error_type": "grammar.auxiliary", "feedback": "С be отрицание без do: he isn't." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_WhereAreYouFrom_02_im_not",
+      "concept_id": "to_be.negative",
+      "type": "transform",
+      "difficulty": 2,
+      "presentation": { "prompt": "Make it negative.", "instruction_ru": "Сделайте отрицание.", "source": "I am tired." },
+      "answer": {
+        "accepted": ["I'm not tired.", "I am not tired."],
+        "known_errors": [
+          {
+            "match": ["I amn't tired.", "I'm no tired."],
+            "error_type": "grammar.overgeneralization",
+            "feedback": "Только так: I'm not или I am not."
+          },
+          {
+            "match": ["I don't tired.", "I not tired.", "I'm don't tired."],
+            "error_type": "grammar.auxiliary",
+            "feedback": "С be отрицание без do: I'm not tired."
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_WhereAreYouFrom_02_where_from",
+      "concept_id": "countries.from",
+      "type": "order_words",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Ask Lev where he is from.",
+        "instruction_ru": "Соберите вопрос «Откуда ты?».",
+        "tokens": ["from", "are", "Where", "you"]
+      },
+      "answer": {
+        "accepted": ["Where are you from"],
+        "known_errors": [
+          {
+            "match": ["Where you are from"],
+            "error_type": "grammar.word_order",
+            "feedback": "В вопросе are встаёт перед you: Where are you from?"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_WhereAreYouFrom_02_irish",
+      "concept_id": "countries.from",
+      "type": "choice",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "Pip is from Ireland. She is ___.",
+        "instruction_ru": "Пип из Ирландии. Она ирландка.",
+        "options": [{ "id": "a", "text": "Irish" }, { "id": "b", "text": "Ireland" }, { "id": "c", "text": "English" }]
+      },
+      "answer": {
+        "accepted": ["a"],
+        "known_errors": [
+          { "match": ["b"], "error_type": "lexis.wrong_word", "feedback": "Ireland — страна. Ирландка — Irish." },
+          { "match": ["c"], "error_type": "lexis.wrong_word", "feedback": "English — англичанка, а Пип из Ирландии." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_WhereAreYouFrom_02_listen_lev",
+      "concept_id": "countries.from",
+      "type": "listen_type",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Lev talks to a new guest. Type what he says.",
+        "instruction_ru": "Послушайте и напечатайте, что говорит Лев.",
+        "audio": "audio/A1_WhereAreYouFrom_02_listen_lev.mp3"
+      },
+      "answer": {
+        "accepted": [
+          "She's from Norway. She isn't a ghost.",
+          "She is from Norway. She is not a ghost.",
+          "She is from Norway. She isn't a ghost.",
+          "She's from Norway. She is not a ghost."
+        ],
+        "known_errors": [
+          {
+            "match": ["She from Norway. She isn't a ghost.", "She from Norway. She not a ghost."],
+            "error_type": "grammar.auxiliary",
+            "feedback": "Is не пропадает: She's from Norway."
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_WhereAreYouFrom_02_translate_moscow",
+      "concept_id": "to_be.negative",
+      "type": "translate_ru_en",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Lev asks about the new guest. Answer in English.",
+        "instruction_ru": "Переведите на английский.",
+        "source": "Он не из Москвы."
+      },
+      "answer": {
+        "accepted": ["He isn't from Moscow.", "He is not from Moscow.", "He's not from Moscow."],
+        "known_errors": [
+          {
+            "match": ["He not from Moscow.", "He no from Moscow."],
+            "error_type": "grammar.auxiliary",
+            "feedback": "Нужен глагол: he isn't from Moscow."
+          },
+          {
+            "match": ["He doesn't from Moscow.", "He don't from Moscow."],
+            "error_type": "grammar.auxiliary",
+            "feedback": "С be отрицание без do: he isn't."
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_WhereAreYouFrom_02_choose_where",
+      "concept_id": "countries.from",
+      "type": "translate_en_ru",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "Where is she from?",
+        "instruction_ru": "Выберите перевод.",
+        "source": "Where is she from?",
+        "options": [{ "id": "a", "text": "Откуда она?" }, { "id": "b", "text": "Где она?" }, { "id": "c", "text": "Куда она идёт?" }]
+      },
+      "answer": {
+        "accepted": ["a"],
+        "known_errors": [
+          { "match": ["b"], "error_type": "comprehension.misread_prompt", "feedback": "Where…from? — «откуда?». Без from было бы «где?»." },
+          { "match": ["c"], "error_type": "lexis.wrong_word", "feedback": "Куда — where…going. Здесь from: «откуда?»." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_WhereAreYouFrom_02_find_error",
+      "concept_id": "to_be.he_she_it",
+      "type": "find_error",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Lev wrote a note for Rocco. Find the wrong word.",
+        "instruction_ru": "Нажмите на слово с ошибкой.",
+        "tokens": ["The", "guest", "in", "room", "13", "are", "from", "Norway", "."]
+      },
+      "answer": {
+        "accepted": ["5"],
+        "correction": "is",
+        "known_errors": [
+          { "match": ["0"], "error_type": "comprehension.misread_prompt", "feedback": "The здесь верно. Гость один — is, а не are." }
+        ]
+      }
+    }
+  ]
+}

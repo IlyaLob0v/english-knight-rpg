@@ -1,0 +1,71 @@
+{
+  "$schema": "../../../packages/content/schemas/episode.schema.json",
+  "schema_version": "2.0",
+  "episode_id": "A1_ThisIsMyRoom_03_lobby",
+  "module_id": "A1_ThisIsMyRoom_03",
+  "place_id": "lobby",
+  "title": { "en": "Radio Moonbridge", "ru": "Радио Мунбридж" },
+  "steps": [
+    {
+      "id": "start",
+      "kind": "line",
+      "speaker": "narrator",
+      "text": {
+        "en": "The old radio in the lobby turns on by itself. Then it starts talking.",
+        "ru": "Старое радио в лобби включается само. Потом начинает говорить."
+      }
+    },
+    {
+      "id": "hi",
+      "kind": "line",
+      "speaker": "kai",
+      "emotion": "happy",
+      "text": {
+        "en": "Good evening, Moonbridge! This is Kai, your ghost on the radio. Who is new tonight?",
+        "ru": "Добрый вечер, Мунбридж! С вами Кай, ваш призрак на радио. Кто у нас новенький?"
+      }
+    },
+    { "id": "piano", "kind": "task", "task_id": "A1_ThisIsMyRoom_03_there_is", "speaker": "kai", "on_wrong": "piano_wrong" },
+    {
+      "id": "piano_ok",
+      "kind": "line",
+      "speaker": "kai",
+      "emotion": "happy",
+      "text": {
+        "en": "Yes! And nobody can play it. Except at three in the morning.",
+        "ru": "Да! И никто не умеет на нём играть. Кроме как в три часа ночи."
+      },
+      "next": "keys"
+    },
+    {
+      "id": "piano_wrong",
+      "kind": "line",
+      "speaker": "kai",
+      "emotion": "upset",
+      "text": { "en": "Hm, my radio heard something strange. Again!", "ru": "Хм, моё радио услышало что-то странное. Ещё раз!" },
+      "next": "piano"
+    },
+    { "id": "keys", "kind": "task", "task_id": "A1_ThisIsMyRoom_03_these", "speaker": "kai" },
+    { "id": "cafe", "kind": "task", "task_id": "A1_ThisIsMyRoom_03_is_there", "speaker": "kai", "on_wrong": "cafe_wrong" },
+    {
+      "id": "cafe_ok",
+      "kind": "line",
+      "speaker": "kai",
+      "emotion": "happy",
+      "text": {
+        "en": "There is! The Night Café, first floor. Pip makes the best moon tea.",
+        "ru": "Есть! Night Café, первый этаж. У Пип лучший лунный чай."
+      },
+      "next": "end"
+    },
+    {
+      "id": "cafe_wrong",
+      "kind": "line",
+      "speaker": "kai",
+      "emotion": "upset",
+      "text": { "en": "Static... static... Ask me again, but nicely.", "ru": "Шшш... помехи... Спросите ещё раз, только вежливо." },
+      "next": "cafe"
+    },
+    { "id": "end", "kind": "end" }
+  ]
+}

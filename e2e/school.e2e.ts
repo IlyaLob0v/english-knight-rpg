@@ -8,12 +8,15 @@
 //   on phone 2 the student signs in with the same login: the episode is still done and the
 //   homework still handed in → the teacher sees the hand-in and downloads the file →
 //   the teacher grades it from the review queue, sees the student's week and their weekly
-//   report, and sets a new password → the student signs in with it and finds the grade.
+//   report, and sets a new password → the student signs in with it and finds the grade →
+//   the teacher downloads the course as a sheet, uploads it with a mistake (the check names
+//   the row), fixes it and publishes: the platform serves the new task text.
 //
 // Run: pnpm e2e:school        (HEADED=1 to watch it)
 import { mkdir, mkdtemp, readFile, rm, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { readXlsx, SHEETS, writeXlsx, type Workbook } from "@moonbridge/content/sheet";
 import { chromium, type Page } from "playwright";
 import { ARTIFACTS, check, finishEpisode, GATEWAY, noSideScroll, PHONE, startServers, step, stopServers, WEB } from "./lib.js";
 
@@ -219,6 +222,49 @@ async function main(): Promise<void> {
     await graded.waitFor();
     check(/I am from/.test(await graded.innerText()), "and the grade with the teacher's comment in the homework");
     await page.screenshot({ path: `${ARTIFACTS}graded.png` });
+
+    step("The teacher updates the course from the sheet");
+    await teacher.goto(`${WEB}/teacher`);
+    await teacher.locator(".content-link a").click();
+    await teacher.locator("[data-content-hash]").waitFor();
+    const before = await teacher.locator("[data-content-hash]").getAttribute("data-content-hash");
+    check(/4 юнита, 45 заданий, 4 эпизода/.test(await teacher.locator("[data-content-hash]").innerText()), "the content page counts units 1–4");
+    const [sheetDownload] = await Promise.all([teacher.waitForEvent("download"), teacher.locator("[data-download-sheet]").click()]);
+    check(sheetDownload.suggestedFilename() === "moonbridge-content.xlsx", "the teacher downloads the course as a sheet");
+    const book = readXlsx(await readFile((await sheetDownload.path())!));
+    const edit = (b: Workbook, task: string, col: string, value: string) => {
+      const [header, ...rows] = b[SHEETS.tasks]!;
+      rows.find((r) => r[header!.indexOf("задание")] === task)![header!.indexOf(col)] = value;
+    };
+    const sheetFile = async (name: string, b: Workbook) => {
+      const path = join(uploads, name);
+      await writeFile(path, writeXlsx(b));
+      return path;
+    };
+    const newPrompt = "Good evening! Welcome to Moonbridge. I'm Rocco, the night porter.";
+    edit(book, "hello", "текст задания", newPrompt);
+    const broken = structuredClone(book);
+    edit(broken, "too", "тип", "пропускк");
+    const form = teacher.locator(".sheet-form");
+    await form.locator('input[type="file"]').setInputFiles(await sheetFile("broken.xlsx", broken));
+    await form.locator("[data-check-sheet]").click();
+    const sheetErrors = form.locator(".sheet-errors li");
+    await sheetErrors.first().waitFor();
+    check(/^Задания, строка 3: тип «пропускк» не знаком/.test(await sheetErrors.first().innerText()), "a mistake in the sheet is named with its sheet and row");
+    check(await form.locator("[data-publish-sheet]").isHidden(), "and the sheet cannot be published");
+    check(await noSideScroll(teacher), "the content page fits a 390 px screen");
+    await teacher.screenshot({ path: `${ARTIFACTS}content-errors.png`, fullPage: true });
+    await form.locator('input[type="file"]').setInputFiles(await sheetFile("fixed.xlsx", book));
+    await form.locator("[data-check-sheet]").click();
+    await form.locator('[data-sheet-ok="true"]').waitFor();
+    check(/изменены: «Приятно познакомиться»/.test(await form.innerText()), "the fixed sheet passes, and the check says which unit changes");
+    await form.locator("[data-publish-sheet]").click();
+    await form.locator("[data-published]").waitFor();
+    const after = await teacher.locator("[data-content-hash]").getAttribute("data-content-hash");
+    check(after !== before && /Ксения, из файла fixed\.xlsx/.test(await teacher.locator("[data-content-hash]").innerText()), "publishing makes it live and says who published it");
+    await teacher.screenshot({ path: `${ARTIFACTS}content-published.png`, fullPage: true });
+    const live = (await (await fetch(`${GATEWAY}/content/bundle`)).json()) as typeof bundle;
+    check(live.content_hash === after && live.tasks["A1_NiceToMeetYou_01_hello"]!.presentation.prompt === newPrompt, "students get the new task text from the platform");
     check(errors.length === 0, `no page errors${errors.length ? `: ${errors.join("; ")}` : ""}`);
   } catch (e) {
     await page.screenshot({ path: `${ARTIFACTS}school-failure.png` }).catch(() => undefined);

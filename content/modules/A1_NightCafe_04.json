@@ -1,0 +1,42 @@
+{
+  "$schema": "../../packages/content/schemas/module.schema.json",
+  "schema_version": "2.0",
+  "module_id": "A1_NightCafe_04",
+  "version": 1,
+  "cefr_level": "A1",
+  "title": { "en": "At the Night Café", "ru": "В Night Café" },
+  "description": {
+    "en": "Can I have…, please? a / an, prices.",
+    "ru": "Can I have…, please? a / an, цены. Черновик: его заменит план урока Ксении."
+  },
+  "skill": "grammar",
+  "grammar_topic": "Can I have…? a / an",
+  "prerequisites": ["A1_ThisIsMyRoom_03"],
+  "concepts": [
+    {
+      "concept_id": "requests.can_i_have",
+      "label": "Can I have…, please?",
+      "explanation_ru": "Вежливая просьба: Can I have…, please? Could — ещё вежливее."
+    },
+    { "concept_id": "articles.a_an", "label": "a / an", "explanation_ru": "По звуку следующего слова: a cup, an apple, an orange." },
+    {
+      "concept_id": "numbers.how_much",
+      "label": "How much is…? numbers",
+      "explanation_ru": "Сколько стоит? — How much is…? 15 fifteen, 50 fifty."
+    }
+  ],
+  "mastery": { "check_task_count": 6, "pass_score": 0.8 },
+  "tasks": [
+    "A1_NightCafe_04_can_i_have",
+    "A1_NightCafe_04_polite",
+    "A1_NightCafe_04_bill",
+    "A1_NightCafe_04_translate_order",
+    "A1_NightCafe_04_an_apple",
+    "A1_NightCafe_04_a_cup",
+    "A1_NightCafe_04_find_error",
+    "A1_NightCafe_04_how_much",
+    "A1_NightCafe_04_fifteen",
+    "A1_NightCafe_04_listen_pip",
+    "A1_NightCafe_04_choose_price"
+  ]
+}

@@ -90,7 +90,22 @@ export function askTask(root: HTMLElement, task: Task, o: AskOptions = {}): Prom
     } else {
       if (task.type === "listen_type" && p.audio) {
         const audio = el("audio", { src: `${o.mediaBase ?? ""}/${p.audio}`, preload: "auto" }) as HTMLAudioElement;
-        const play = el("button", { class: "play", type: "button", onclick: () => ((audio.currentTime = 0), void audio.play().catch(() => undefined)) }, "▶ Слушать");
+        // Until the recording is in content/media, the phone reads the first accepted answer aloud.
+        let missing = false;
+        audio.addEventListener("error", () => (missing = true));
+        const speak = () => {
+          if (!("speechSynthesis" in window)) return;
+          const u = new SpeechSynthesisUtterance(task.answer.accepted[0] ?? "");
+          u.lang = "en-GB";
+          u.rate = 0.9;
+          speechSynthesis.cancel();
+          speechSynthesis.speak(u);
+        };
+        const play = el(
+          "button",
+          { class: "play", type: "button", onclick: () => (missing ? speak() : ((audio.currentTime = 0), void audio.play().catch(speak))) },
+          "▶ Слушать",
+        );
         body.append(audio, play);
       }
       const input = el("input", {

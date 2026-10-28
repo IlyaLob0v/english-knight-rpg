@@ -5,6 +5,7 @@ import { ProgressBackup } from "./net/backup.js";
 import { askProfile, joinGroup, loadProfile, saveProfile, signIn, signOut } from "./platform/login.js";
 import { loadDashboard, renderHomework } from "./platform/school.js";
 import { renderStudentReport } from "./platform/report.js";
+import { renderContent } from "./platform/content.js";
 import { renderTeacher } from "./platform/teacher.js";
 import { renderToday } from "./platform/today.js";
 import { IdbJournal, IdbKeyValue, IdbOutboxStore, openPlayerDb, type KeyValue } from "./storage/idb.js";
@@ -147,6 +148,7 @@ async function boot(): Promise<void> {
     const homeworkId = /^\/homework\/([A-Za-z0-9_]+)$/.exec(path)?.[1];
     if (homeworkId && session.kind === "account") return renderHomework(root, homeworkId, { api, token: session.token, kv: local, navigate });
     if (path === "/teacher" && session.account?.role === "teacher") return renderTeacher(root, { api, token: session.token, kv: local });
+    if (path === "/teacher/content" && session.account?.role === "teacher") return renderContent(root, { api, token: session.token, kv: local });
     const studentId = /^\/teacher\/student\/([A-Za-z0-9_]+)$/.exec(path)?.[1];
     if (studentId && session.account?.role === "teacher") {
       return renderStudentReport(root, studentId, new URLSearchParams(location.search).get("week") ?? undefined, { api, token: session.token, navigate });

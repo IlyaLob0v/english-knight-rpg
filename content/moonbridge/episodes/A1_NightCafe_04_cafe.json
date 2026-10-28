@@ -1,0 +1,75 @@
+{
+  "$schema": "../../../packages/content/schemas/episode.schema.json",
+  "schema_version": "2.0",
+  "episode_id": "A1_NightCafe_04_cafe",
+  "module_id": "A1_NightCafe_04",
+  "place_id": "cafe",
+  "title": { "en": "Moon tea", "ru": "Лунный чай" },
+  "steps": [
+    {
+      "id": "start",
+      "kind": "line",
+      "speaker": "narrator",
+      "text": {
+        "en": "The Night Café smells of cinnamon and rain. A tiny fairy flies over the coffee machine.",
+        "ru": "В Night Café пахнет корицей и дождём. Над кофемашиной порхает крошечная фея."
+      }
+    },
+    {
+      "id": "hi",
+      "kind": "line",
+      "speaker": "pip",
+      "emotion": "happy",
+      "text": { "en": "Hello, hello! I'm Pip. What can I get you?", "ru": "Привет-привет! Я Пип. Что вам принести?" }
+    },
+    { "id": "order", "kind": "task", "task_id": "A1_NightCafe_04_can_i_have", "speaker": "pip", "on_wrong": "order_wrong" },
+    {
+      "id": "order_ok",
+      "kind": "line",
+      "speaker": "pip",
+      "emotion": "happy",
+      "text": { "en": "Of course! Moon tea is my favourite.", "ru": "Конечно! Лунный чай — мой любимый." },
+      "next": "pie"
+    },
+    {
+      "id": "order_wrong",
+      "kind": "line",
+      "speaker": "pip",
+      "emotion": "upset",
+      "text": {
+        "en": "Oh. A wizard said that once. He is a frog now. Try again?",
+        "ru": "Ой. Один волшебник так однажды сказал. Теперь он лягушка. Попробуете ещё?"
+      },
+      "next": "order"
+    },
+    { "id": "pie", "kind": "task", "task_id": "A1_NightCafe_04_an_apple", "speaker": "pip", "on_wrong": "pie_wrong" },
+    {
+      "id": "pie_ok",
+      "kind": "line",
+      "speaker": "pip",
+      "emotion": "happy",
+      "text": { "en": "Fresh from the oven. Well, from the dragon.", "ru": "Прямо из печи. Ну, из дракона." },
+      "next": "price"
+    },
+    {
+      "id": "pie_wrong",
+      "kind": "line",
+      "speaker": "pip",
+      "emotion": "upset",
+      "text": { "en": "\"A apple\"? My ears hurt. Again, please.", "ru": "«A apple»? У меня уши болят. Ещё раз, пожалуйста." },
+      "next": "pie"
+    },
+    { "id": "price", "kind": "task", "task_id": "A1_NightCafe_04_how_much", "speaker": "pip" },
+    {
+      "id": "bye",
+      "kind": "line",
+      "speaker": "pip",
+      "emotion": "happy",
+      "text": {
+        "en": "Fifteen coins. Or one good story. Come back tomorrow!",
+        "ru": "Пятнадцать монет. Или одна хорошая история. Приходите завтра!"
+      }
+    },
+    { "id": "end", "kind": "end" }
+  ]
+}

@@ -2,10 +2,7 @@
   "$schema": "../../packages/content/schemas/course.schema.json",
   "schema_version": "2.0",
   "course_id": "english_a1_a2",
-  "title": {
-    "en": "English A1–A2 for adults",
-    "ru": "Английский A1–A2 для взрослых"
-  },
+  "title": { "en": "English A1–A2 for adults", "ru": "Английский A1–A2 для взрослых" },
   "cefr": { "from": "A1", "to": "A2" },
-  "units": ["A1_NiceToMeetYou_01"]
+  "units": ["A1_NiceToMeetYou_01", "A1_WhereAreYouFrom_02", "A1_ThisIsMyRoom_03", "A1_NightCafe_04"]
 }

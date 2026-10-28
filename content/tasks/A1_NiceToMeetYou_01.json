@@ -20,8 +20,16 @@
       "answer": {
         "accepted": ["a"],
         "known_errors": [
-          { "match": ["b"], "error_type": "lexis.wrong_word", "feedback": "Goodbye — это «до свидания». При знакомстве говорят Nice to meet you." },
-          { "match": ["c"], "error_type": "comprehension.misread_prompt", "feedback": "Too добавляют в ответ, когда «приятно познакомиться» уже сказали вам." }
+          {
+            "match": ["b"],
+            "error_type": "lexis.wrong_word",
+            "feedback": "Goodbye — это «до свидания». При знакомстве говорят Nice to meet you."
+          },
+          {
+            "match": ["c"],
+            "error_type": "comprehension.misread_prompt",
+            "feedback": "Too добавляют в ответ, когда «приятно познакомиться» уже сказали вам."
+          }
         ]
       }
     },
@@ -30,10 +38,7 @@
       "concept_id": "greetings.meeting",
       "type": "gap_fill",
       "difficulty": 1,
-      "presentation": {
-        "prompt": "— Nice to meet you! — Nice to meet you ___.",
-        "instruction_ru": "Ответьте на «приятно познакомиться»."
-      },
+      "presentation": { "prompt": "— Nice to meet you! — Nice to meet you ___.", "instruction_ru": "Ответьте на «приятно познакомиться»." },
       "answer": {
         "accepted": ["too"],
         "known_errors": [
@@ -47,10 +52,7 @@
       "concept_id": "to_be.i_am",
       "type": "gap_fill",
       "difficulty": 1,
-      "presentation": {
-        "prompt": "I ___ a new guest.",
-        "hint": "I + am"
-      },
+      "presentation": { "prompt": "I ___ a new guest.", "hint": "I + am" },
       "answer": {
         "accepted": ["am"],
         "known_errors": [
@@ -72,7 +74,11 @@
       "answer": {
         "accepted": ["I'm from Russia"],
         "known_errors": [
-          { "match": ["I'm Russia from", "from Russia I'm"], "error_type": "grammar.word_order", "feedback": "Сначала кто (I'm), потом откуда (from Russia)." }
+          {
+            "match": ["I'm Russia from", "from Russia I'm"],
+            "error_type": "grammar.word_order",
+            "feedback": "Сначала кто (I'm), потом откуда (from Russia)."
+          }
         ]
       }
     },
@@ -89,7 +95,11 @@
       "answer": {
         "accepted": ["What is your name"],
         "known_errors": [
-          { "match": ["What your name is"], "error_type": "grammar.word_order", "feedback": "В вопросе is встаёт перед your name: What is your name?" }
+          {
+            "match": ["What your name is"],
+            "error_type": "grammar.word_order",
+            "feedback": "В вопросе is встаёт перед your name: What is your name?"
+          }
         ]
       }
     },
@@ -98,17 +108,17 @@
       "concept_id": "to_be.you_are",
       "type": "transform",
       "difficulty": 2,
-      "presentation": {
-        "prompt": "Make a question.",
-        "source": "You are a vampire.",
-        "instruction_ru": "Сделайте из утверждения вопрос."
-      },
+      "presentation": { "prompt": "Make a question.", "instruction_ru": "Сделайте из утверждения вопрос.", "source": "You are a vampire." },
       "answer": {
         "accepted": ["Are you a vampire?"],
         "known_errors": [
           { "match": ["You are a vampire?"], "error_type": "grammar.word_order", "feedback": "В вопросе are встаёт перед you: Are you…?" },
           { "match": ["Is you a vampire?", "Am you a vampire?"], "error_type": "grammar.agreement", "feedback": "С you всегда are." },
-          { "match": ["Do you a vampire?", "Do you are a vampire?"], "error_type": "grammar.auxiliary", "feedback": "С be вопрос строится без do: Are you a vampire?" },
+          {
+            "match": ["Do you a vampire?", "Do you are a vampire?"],
+            "error_type": "grammar.auxiliary",
+            "feedback": "С be вопрос строится без do: Are you a vampire?"
+          },
           { "match": ["Are you vampire?"], "error_type": "grammar.article", "feedback": "Артикль a остаётся: Are you a vampire?" }
         ]
       }
@@ -118,15 +128,10 @@
       "concept_id": "to_be.you_are",
       "type": "gap_fill",
       "difficulty": 1,
-      "presentation": {
-        "prompt": "You ___ in room 13.",
-        "hint": "you + are"
-      },
+      "presentation": { "prompt": "You ___ in room 13.", "hint": "you + are" },
       "answer": {
         "accepted": ["are"],
-        "known_errors": [
-          { "match": ["is", "am"], "error_type": "grammar.agreement", "feedback": "С you всегда are: You are in room 13." }
-        ]
+        "known_errors": [{ "match": ["is", "am"], "error_type": "grammar.agreement", "feedback": "С you всегда are: You are in room 13." }]
       }
     },
     {
@@ -137,16 +142,12 @@
       "presentation": {
         "prompt": "___ name is Anna.",
         "instruction_ru": "Как сказать «Меня зовут Анна»?",
-        "options": [
-          { "id": "my", "text": "My" },
-          { "id": "me", "text": "Me" },
-          { "id": "i", "text": "I" }
-        ]
+        "options": [{ "id": "a", "text": "My" }, { "id": "b", "text": "Me" }, { "id": "c", "text": "I" }]
       },
       "answer": {
-        "accepted": ["my"],
+        "accepted": ["a"],
         "known_errors": [
-          { "match": ["me", "i"], "error_type": "grammar.agreement", "feedback": "Перед существительным нужно my: My name is Anna." }
+          { "match": ["b", "c"], "error_type": "grammar.agreement", "feedback": "Перед существительным нужно my: My name is Anna." }
         ]
       }
     },
@@ -163,7 +164,11 @@
       "answer": {
         "accepted": ["Hi, I'm Kai. I'm from Moonbridge.", "Hi, I am Kai. I am from Moonbridge."],
         "known_errors": [
-          { "match": ["Hi, I Kai. I from Moonbridge.", "Hi, I'm Kai. I from Moonbridge."], "error_type": "grammar.auxiliary", "feedback": "Am не пропадает: I'm Kai, I'm from Moonbridge." }
+          {
+            "match": ["Hi, I Kai. I from Moonbridge.", "Hi, I'm Kai. I from Moonbridge."],
+            "error_type": "grammar.auxiliary",
+            "feedback": "Am не пропадает: I'm Kai, I'm from Moonbridge."
+          }
         ]
       }
     },
@@ -178,9 +183,18 @@
         "source": "Я устал, но я рад быть здесь."
       },
       "answer": {
-        "accepted": ["I'm tired, but I'm happy to be here.", "I am tired, but I am happy to be here.", "I'm tired but I'm glad to be here.", "I am tired but I am glad to be here."],
+        "accepted": [
+          "I'm tired, but I'm happy to be here.",
+          "I am tired, but I am happy to be here.",
+          "I'm tired but I'm glad to be here.",
+          "I am tired but I am glad to be here."
+        ],
         "known_errors": [
-          { "match": ["I tired, but I happy to be here.", "I tired but I glad to be here."], "error_type": "grammar.auxiliary", "feedback": "В английском нужен глагол: I am tired, I am happy." }
+          {
+            "match": ["I tired, but I happy to be here.", "I tired but I glad to be here."],
+            "error_type": "grammar.auxiliary",
+            "feedback": "В английском нужен глагол: I am tired, I am happy."
+          }
         ]
       }
     },
@@ -221,7 +235,11 @@
         "accepted": ["1"],
         "correction": "are",
         "known_errors": [
-          { "match": ["2"], "error_type": "comprehension.misread_prompt", "feedback": "My здесь верно: «мой сосед». Ошибка в is: с you нужно are." }
+          {
+            "match": ["2"],
+            "error_type": "comprehension.misread_prompt",
+            "feedback": "My здесь верно: «мой сосед». Ошибка в is: с you нужно are."
+          }
         ]
       }
     }

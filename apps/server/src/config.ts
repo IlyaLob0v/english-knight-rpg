@@ -19,6 +19,10 @@ export interface ServerConfig {
   uploadDir: string;
   /** Bearer token for content uploads. Unset = uploads disabled. */
   adminToken?: string;
+  /** Behind a reverse proxy (the stand's Caddy): client addresses come from X-Forwarded-For. */
+  trustProxy: boolean;
+  /** Homework files in an S3-compatible bucket (Yandex Object Storage); unset = on disk in uploadDir. */
+  s3?: { endpoint: string; region: string; bucket: string; accessKeyId: string; secretAccessKey: string };
   /** Allows POST /session/guest for local play without an LMS. Never in production. */
   allowGuest: boolean;
   lrs?: { endpoint: string; key: string; secret: string };
@@ -65,6 +69,18 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     accountSessionTtlSeconds: Number(env.ACCOUNT_SESSION_TTL_SECONDS ?? 30 * 24 * 3600),
     uploadDir: env.UPLOAD_DIR ?? new URL("../../../data/uploads", import.meta.url).pathname,
     ...(env.ADMIN_TOKEN ? { adminToken: env.ADMIN_TOKEN } : {}),
+    trustProxy: env.TRUST_PROXY === "true",
+    ...(env.S3_BUCKET
+      ? {
+          s3: {
+            endpoint: (env.S3_ENDPOINT ?? "https://storage.yandexcloud.net").replace(/\/$/, ""),
+            region: env.S3_REGION ?? "ru-central1",
+            bucket: env.S3_BUCKET,
+            accessKeyId: required(env, "S3_ACCESS_KEY_ID"),
+            secretAccessKey: required(env, "S3_SECRET_ACCESS_KEY"),
+          },
+        }
+      : {}),
     allowGuest: !production && env.ALLOW_GUEST !== "false",
     ...(env.LRS_ENDPOINT
       ? { lrs: { endpoint: env.LRS_ENDPOINT, key: required(env, "LRS_KEY"), secret: required(env, "LRS_SECRET") } }

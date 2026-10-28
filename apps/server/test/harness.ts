@@ -65,6 +65,8 @@ export interface HarnessStores {
   outboxStore?: OutboxStore;
   gradeStore?: GradeStore;
   school?: AppDeps["school"];
+  content?: AppDeps["content"];
+  fetchSheet?: AppDeps["fetchSheet"];
 }
 
 export async function harness(stores: HarnessStores = {}): Promise<Harness> {
@@ -95,6 +97,8 @@ export async function harness(stores: HarnessStores = {}): Promise<Harness> {
     progress: stores.progress ?? new MemoryProgressStore(),
     toolKeys,
     ...(stores.school ? { school: stores.school } : {}),
+    ...(stores.content ? { content: stores.content } : {}),
+    ...(stores.fetchSheet ? { fetchSheet: stores.fetchSheet } : {}),
   });
   current = app;
   return { app, sent, agsCalls, outbox, grades, lms };

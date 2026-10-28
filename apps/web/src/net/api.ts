@@ -137,6 +137,40 @@ export class ApiError extends Error {
 export class SignedOutError extends Error {}
 
 /** Client of the integration gateway (apps/server). */
+/** The live content as the teacher's cabinet shows it. */
+export interface ContentState {
+  content_hash: string;
+  units: number;
+  tasks: number;
+  episodes: number;
+  /** False where the server keeps no published versions: the content comes from the repository only. */
+  editable: boolean;
+  published: { at: string; by: string | null; source: string } | null;
+}
+
+export interface SheetIssue {
+  severity: "error" | "warning";
+  where: string;
+  message: string;
+}
+
+export interface SheetResult {
+  ok: boolean;
+  issues: SheetIssue[];
+  summary: {
+    units: { id: string; title: string; tasks: number }[];
+    tasks: number;
+    episodes: number;
+    added: string[];
+    changed: string[];
+    removed: string[];
+  } | null;
+  content?: ContentState;
+}
+
+/** A content sheet: a Google Sheets link or an .xlsx file. */
+export type SheetInput = { url: string } | File;
+
 export class Api {
   private readonly fetchImpl: typeof fetch;
 
@@ -209,6 +243,38 @@ export class Api {
 
   resetPassword(token: string, accountId: string) {
     return this.json<{ login: string; password: string }>(`/school/students/${accountId}/password`, { method: "POST" }, token);
+  }
+
+  contentState(token: string) {
+    return this.json<ContentState>("/school/content", {}, token);
+  }
+
+  /** The live content as an .xlsx sheet, to edit and publish back. */
+  async contentSheet(token: string): Promise<Blob> {
+    const res = await this.fetchImpl(`${this.base}/school/content/sheet`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30000) });
+    if (!res.ok) throw new ApiError(res.status, `GET /school/content/sheet: HTTP ${res.status}`);
+    return res.blob();
+  }
+
+  /**
+   * Checks or publishes a sheet. A sheet with errors comes back as a result (ok: false) with the
+   * errors, not as an exception: the teacher needs to see them.
+   */
+  async sheet(token: string, what: "check" | "publish", input: SheetInput): Promise<SheetResult> {
+    const file = input instanceof File;
+    const res = await this.fetchImpl(`${this.base}/school/content/${what}${file ? `?name=${encodeURIComponent(input.name)}` : ""}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": file ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "application/json",
+      },
+      body: file ? input : JSON.stringify(input),
+      // Google can take a while to export a big sheet.
+      signal: AbortSignal.timeout(60000),
+    });
+    const body = (await res.json().catch(() => undefined)) as (SheetResult & { message?: string }) | undefined;
+    if (res.ok || (res.status === 422 && body?.issues)) return body!;
+    throw new ApiError(res.status, `POST /school/content/${what}: HTTP ${res.status}`, body?.message);
   }
 
   /** A short-lived link to a handed-in file, which the browser opens as an ordinary download. */

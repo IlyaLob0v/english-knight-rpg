@@ -2,9 +2,12 @@ import { basename, extname } from "node:path";
 import type { Readable } from "node:stream";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { jwtVerify, SignJWT } from "jose";
+import type { LiveContent } from "../content/live.js";
+import { sheetRoutes } from "../content/routes.js";
 import type { ServerConfig } from "../config.js";
 import type { Session, SessionTokens } from "../session.js";
 import { FileTooLargeError, type FileStore } from "./files.js";
+import { FailureLimiter } from "./limits.js";
 import { DUMMY_HASH, hashPassword, verifyPassword } from "./passwords.js";
 import { LoginTakenError, type Account, type Group, type Homework, type PracticeSummary, type SchoolStore, type Submission } from "./store.js";
 
@@ -15,6 +18,8 @@ export interface SchoolDeps {
   files: FileStore;
   /** The Russian label of an error type, from the live content's taxonomy. */
   errorLabel?: (errorTypeId: string) => string | undefined;
+  /** The live content, which teachers may replace from the content sheet. */
+  content?: { live: LiveContent; fetch?: typeof fetch };
   now?: () => Date;
 }
 
@@ -169,6 +174,8 @@ export async function schoolRoutes(app: FastifyInstance, d: SchoolDeps): Promise
     if (!reply.sent && req.account?.role !== "teacher") return reply.code(403).send({ error: "teachers only" });
   };
 
+  if (d.content) await sheetRoutes(app, { live: d.content.live, requireTeacher, accountId: (req) => req.account!.accountId, ...(d.content.fetch ? { fetch: d.content.fetch } : {}) });
+
   /** The group, if the signed-in teacher runs it. */
   const ownGroup = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<Group | undefined> => {
     const g = await d.school.group(req.params.id);
@@ -210,10 +217,28 @@ export async function schoolRoutes(app: FastifyInstance, d: SchoolDeps): Promise
     return a && reply.code(201).send({ account: accountView(a) });
   });
 
+  // Password guessing: 5 wrong passwords for one login, or 30 from one address, in 15 minutes, then a pause.
+  const clock = () => now().getTime();
+  const loginFailures = new FailureLimiter(5, 15 * 60_000, clock);
+  const addressFailures = new FailureLimiter(30, 15 * 60_000, clock);
+
   app.post<{ Body: { login: string; password: string } }>("/auth/login", { schema: { body: credentials } }, async (req, reply) => {
-    const a = await d.school.accountByLogin(normalizeLogin(req.body.login));
+    const login = normalizeLogin(req.body.login);
+    const wait = Math.max(loginFailures.retryAfter(login), addressFailures.retryAfter(req.ip));
+    if (wait) {
+      return reply
+        .code(429)
+        .header("Retry-After", String(wait))
+        .send({ error: "too_many", message: `Слишком много неудачных попыток. Попробуйте через ${Math.ceil(wait / 60)} мин.` });
+    }
+    const a = await d.school.accountByLogin(login);
     const ok = await verifyPassword(req.body.password, a?.passwordHash ?? DUMMY_HASH);
-    if (!a || !ok) return reply.code(401).send({ error: "credentials", message: "Неверный логин или пароль" });
+    if (!a || !ok) {
+      loginFailures.fail(login);
+      addressFailures.fail(req.ip);
+      return reply.code(401).send({ error: "credentials", message: "Неверный логин или пароль" });
+    }
+    loginFailures.reset(login);
     return signIn(a);
   });
 

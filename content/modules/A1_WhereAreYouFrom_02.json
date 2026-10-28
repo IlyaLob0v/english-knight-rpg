@@ -1,0 +1,46 @@
+{
+  "$schema": "../../packages/content/schemas/module.schema.json",
+  "schema_version": "2.0",
+  "module_id": "A1_WhereAreYouFrom_02",
+  "version": 1,
+  "cefr_level": "A1",
+  "title": { "en": "Where are you from?", "ru": "Откуда вы?" },
+  "description": {
+    "en": "He / she / it is, negatives with be, countries.",
+    "ru": "He / she / it is, отрицание с be, страны. Черновик: его заменит план урока Ксении."
+  },
+  "skill": "grammar",
+  "grammar_topic": "Verb to be: he/she/it, negatives",
+  "prerequisites": ["A1_NiceToMeetYou_01"],
+  "concepts": [
+    {
+      "concept_id": "to_be.he_she_it",
+      "label": "He is / She is / It is",
+      "explanation_ru": "С he, she, it — is. В вопросе is встаёт вперёд: Is she…?"
+    },
+    {
+      "concept_id": "to_be.negative",
+      "label": "I'm not / isn't / aren't",
+      "explanation_ru": "Отрицание с be — без do: I'm not, he isn't, you aren't."
+    },
+    {
+      "concept_id": "countries.from",
+      "label": "Where are you from? / countries",
+      "explanation_ru": "Откуда? — Where…from? Страна и национальность — разные слова: Ireland — Irish."
+    }
+  ],
+  "mastery": { "check_task_count": 6, "pass_score": 0.8 },
+  "tasks": [
+    "A1_WhereAreYouFrom_02_she_is",
+    "A1_WhereAreYouFrom_02_he",
+    "A1_WhereAreYouFrom_02_is_she",
+    "A1_WhereAreYouFrom_02_isnt",
+    "A1_WhereAreYouFrom_02_im_not",
+    "A1_WhereAreYouFrom_02_where_from",
+    "A1_WhereAreYouFrom_02_irish",
+    "A1_WhereAreYouFrom_02_listen_lev",
+    "A1_WhereAreYouFrom_02_translate_moscow",
+    "A1_WhereAreYouFrom_02_choose_where",
+    "A1_WhereAreYouFrom_02_find_error"
+  ]
+}

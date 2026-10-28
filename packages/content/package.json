@@ -7,14 +7,18 @@
   "exports": {
     ".": "./src/index.ts",
     "./node": "./src/node.ts",
-    "./schemas/*": "./schemas/*"
+    "./schemas/*": "./schemas/*",
+    "./sheet": "./src/sheet/index.ts"
   },
   "scripts": {
     "validate": "tsx src/cli.ts validate ../../content",
-    "bundle": "tsx src/cli.ts bundle ../../content ../../dist/content-bundle.json"
+    "bundle": "tsx src/cli.ts bundle ../../content ../../dist/content-bundle.json",
+    "sheet:export": "tsx src/cli.ts export ../../content ../../dist/moonbridge-content.xlsx",
+    "sheet:import": "tsx src/cli.ts import ../../content"
   },
   "dependencies": {
     "ajv": "^8.20.0",
-    "ajv-formats": "^3.0.1"
+    "ajv-formats": "^3.0.1",
+    "fflate": "^0.8.3"
   }
 }

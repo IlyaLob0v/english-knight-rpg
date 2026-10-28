@@ -1,0 +1,46 @@
+{
+  "$schema": "../../packages/content/schemas/module.schema.json",
+  "schema_version": "2.0",
+  "module_id": "A1_ThisIsMyRoom_03",
+  "version": 1,
+  "cefr_level": "A1",
+  "title": { "en": "This is my room", "ru": "Это мой номер" },
+  "description": {
+    "en": "There is / there are, this / these, plural nouns.",
+    "ru": "There is / there are, this / these, множественное число. Черновик: его заменит план урока Ксении."
+  },
+  "skill": "grammar",
+  "grammar_topic": "There is / there are, this / these",
+  "prerequisites": ["A1_WhereAreYouFrom_02"],
+  "concepts": [
+    {
+      "concept_id": "there_is.there_are",
+      "label": "There is / There are",
+      "explanation_ru": "«Есть, находится»: there is + один предмет, there are + много. Вопрос: Is there…?"
+    },
+    {
+      "concept_id": "demonstratives.this_these",
+      "label": "this / these, that / those",
+      "explanation_ru": "Рядом — this (один), these (много). Далеко — that, those."
+    },
+    {
+      "concept_id": "plurals.nouns",
+      "label": "keys, boxes, people",
+      "explanation_ru": "Обычно -s, после s, x, sh, ch — -es. Есть исключения: person — people, child — children."
+    }
+  ],
+  "mastery": { "check_task_count": 6, "pass_score": 0.8 },
+  "tasks": [
+    "A1_ThisIsMyRoom_03_there_is",
+    "A1_ThisIsMyRoom_03_there_are",
+    "A1_ThisIsMyRoom_03_is_there",
+    "A1_ThisIsMyRoom_03_listen_kai",
+    "A1_ThisIsMyRoom_03_translate_room",
+    "A1_ThisIsMyRoom_03_these",
+    "A1_ThisIsMyRoom_03_that",
+    "A1_ThisIsMyRoom_03_choose_these",
+    "A1_ThisIsMyRoom_03_people",
+    "A1_ThisIsMyRoom_03_boxes",
+    "A1_ThisIsMyRoom_03_find_error"
+  ]
+}

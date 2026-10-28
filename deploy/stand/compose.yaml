@@ -1,0 +1,86 @@
+# The stand on one virtual machine in a Russian region: Postgres, the LRS, the gateway and Caddy.
+# Homework files go to Yandex Object Storage (S3_* in .env). See docs/stand.md.
+name: moonbridge-stand
+
+services:
+  postgres:
+    image: postgres:16.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: moonbridge
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: moonbridge
+    volumes:
+      - postgres:/var/lib/postgresql/data
+      - ./postgres-init.sh:/docker-entrypoint-initdb.d/lrsql.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moonbridge"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  # The xAPI store the pilot's metrics are counted from. Not exposed: its admin page is reached over SSH.
+  lrs:
+    image: yetanalytics/lrsql:v0.9.9
+    command: /lrsql/bin/run_postgres.sh
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      LRSQL_DB_HOST: postgres
+      LRSQL_DB_PORT: 5432
+      LRSQL_DB_NAME: lrsql
+      LRSQL_DB_USER: lrsql
+      LRSQL_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      LRSQL_API_KEY_DEFAULT: moonbridge-gateway
+      LRSQL_API_SECRET_DEFAULT: ${LRS_SECRET:?set LRS_SECRET in .env}
+      LRSQL_ADMIN_USER_DEFAULT: admin
+      LRSQL_ADMIN_PASS_DEFAULT: ${LRS_ADMIN_PASSWORD:?set LRS_ADMIN_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  gateway:
+    build:
+      context: ../..
+      target: gateway
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://moonbridge:${POSTGRES_PASSWORD}@postgres:5432/moonbridge
+      PUBLIC_URL: https://${DOMAIN:?set DOMAIN in .env}/api
+      CLIENT_URL: https://${DOMAIN}
+      XAPI_BASE_IRI: ${XAPI_BASE_IRI:?set XAPI_BASE_IRI in .env}
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?set ADMIN_TOKEN in .env}
+      TRUST_PROXY: "true"
+      LRS_ENDPOINT: http://lrs:8080/xapi
+      LRS_KEY: moonbridge-gateway
+      LRS_SECRET: ${LRS_SECRET}
+      S3_ENDPOINT: ${S3_ENDPOINT:-https://storage.yandexcloud.net}
+      S3_REGION: ${S3_REGION:-ru-central1}
+      S3_BUCKET: ${S3_BUCKET:?set S3_BUCKET in .env}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID in .env}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY in .env}
+
+  web:
+    build:
+      context: ../..
+      target: web
+    restart: unless-stopped
+    depends_on:
+      - gateway
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy:/data
+
+volumes:
+  postgres:
+  caddy:
