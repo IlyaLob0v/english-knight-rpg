@@ -53,6 +53,49 @@ export interface GroupProgress {
   students: { id: string; name: string; week: PracticeView; homework_open: number }[];
 }
 
+export type MetricStatus = "ok" | "below" | "no_data";
+export interface Metric {
+  value: number | null;
+  target: number;
+  status: MetricStatus;
+}
+
+/** The pilot's metrics for a group (apps/server/src/school/metrics.ts). */
+export interface PilotMetrics {
+  from: string;
+  weeks: { from: string; to: string; complete: boolean; active: number; avgDays: number; medianSessionMinutes: number | null; voluntaryStudents: number; lostOffered: number; lostReturned: number }[];
+  students: { id: string; name: string; days: number[]; sessions: number; voluntary: number; medianSessionMinutes: number | null; lostOffered: number; lostReturned: number }[];
+  summary: {
+    practiceDays: Metric;
+    active: Metric & { week: number | null; students: number; of: number };
+    sessionMinutes: Metric;
+    voluntaryShare: Metric;
+    lostReturned: Metric & { returned: number; offered: number };
+    errorTypes: {
+      improved: number;
+      compared: number;
+      trends: { errorType: string; label: string; firstWeek: string; firstAccuracy: number; lastWeek: string; lastAccuracy: number; change: number }[];
+    };
+  };
+}
+
+export interface FeedbackView {
+  id: string;
+  name: string;
+  role: "student" | "teacher";
+  page: string;
+  message: string;
+  user_agent: string;
+  at: string;
+}
+
+export interface GroupMetrics {
+  group: { id: string; name: string };
+  pilot_from: string | null;
+  metrics: PilotMetrics;
+  feedback: FeedbackView[];
+}
+
 export interface StudentReport {
   student: { id: string; name: string };
   week: { from: string; to: string };
@@ -231,6 +274,19 @@ export class Api {
   /** The weekly report on a student; `week` is any Moscow date in the week, the current week by default. */
   studentReport(token: string, accountId: string, week?: string) {
     return this.json<StudentReport>(`/school/students/${accountId}/report${week ? `?week=${week}` : ""}`, {}, token);
+  }
+
+  groupMetrics(token: string, groupId: string) {
+    return this.json<GroupMetrics>(`/school/groups/${groupId}/metrics`, {}, token);
+  }
+
+  setPilotFrom(token: string, groupId: string, from: string) {
+    return this.json<{ pilot_from: string }>(`/school/groups/${groupId}/pilot`, { method: "PUT", body: JSON.stringify({ from }) }, token);
+  }
+
+  /** "Сообщить о проблеме". */
+  sendFeedback(token: string, message: string, page: string) {
+    return this.json<{ id: string }>("/feedback", { method: "POST", body: JSON.stringify({ message, page }) }, token);
   }
 
   reviewQueue(token: string) {

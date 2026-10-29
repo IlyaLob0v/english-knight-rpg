@@ -389,3 +389,59 @@ describe("the teacher's cabinet", () => {
     expect(weekStart(new Date("2026-12-06T21:00:00Z")).toISOString()).toBe("2026-12-06T21:00:00.000Z"); // Mon 00:00 MSK
   });
 });
+
+describe("the pilot", () => {
+  it("counts the group's metrics from the week of its first answer, or from the day the teacher sets", async () => {
+    const app = await school();
+    const t = await teacher(app);
+    const { groupId, code } = await groupWithInvite(app, t);
+    const anna = (await joinGroup(app, code)).json();
+    await joinGroup(app, code, "boris");
+    clock = new Date("2026-12-09T09:00:00Z");
+    await answer(app, anna, [
+      { at: "2026-12-01T15:00:00Z", success: true, mode: "lost_and_found" },
+      { at: "2026-12-01T15:01:00Z", success: false, errorType: "grammar.agreement", mode: "lost_and_found" },
+      { at: "2026-12-08T15:00:00Z", success: true },
+    ]);
+
+    const res = await app.inject({ url: `/school/groups/${groupId}/metrics`, headers: auth(t) });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.group).toEqual({ id: groupId, name: "A1 вечер" });
+    expect(body.pilot_from).toBeNull();
+    expect(body.metrics.from).toBe("2026-11-30");
+    expect(body.metrics.weeks.map((w: { active: number }) => w.active)).toEqual([1, 1]);
+    expect(body.metrics.summary.lostReturned).toMatchObject({ returned: 1, offered: 2, value: 50, status: "below" });
+    expect(body.metrics.summary.active).toMatchObject({ week: 1, students: 1, of: 2 });
+
+    expect((await app.inject({ method: "PUT", url: `/school/groups/${groupId}/pilot`, headers: auth(t), payload: { from: "2026-12-10" } })).statusCode).toBe(200);
+    const moved = (await app.inject({ url: `/school/groups/${groupId}/metrics`, headers: auth(t) })).json();
+    expect(moved.pilot_from).toBe("2026-12-10");
+    expect(moved.metrics.from).toBe("2026-12-07");
+    expect(moved.metrics.weeks).toHaveLength(1);
+
+    expect((await app.inject({ method: "PUT", url: `/school/groups/${groupId}/pilot`, headers: auth(t), payload: { from: "10.12.2026" } })).statusCode).toBe(400);
+    expect((await app.inject({ url: `/school/groups/${groupId}/metrics`, headers: auth(anna.token) })).statusCode).toBe(403);
+  });
+
+  it("takes a tester's report and shows it to their teacher and to the admin", async () => {
+    const app = await school();
+    const t = await teacher(app);
+    const { groupId, code } = await groupWithInvite(app, t);
+    const anna = (await joinGroup(app, code)).json();
+    expect((await app.inject({ method: "POST", url: "/feedback", payload: { message: "x", page: "/" } })).statusCode).toBe(401);
+    expect((await app.inject({ method: "POST", url: "/feedback", headers: auth(anna.token), payload: { message: "   ", page: "/" } })).statusCode).toBe(400);
+    const sent = await app.inject({
+      method: "POST",
+      url: "/feedback",
+      headers: { ...auth(anna.token), "user-agent": "Mozilla/5.0 (iPhone)" },
+      payload: { message: "Кнопка «Дальше» не нажимается", page: "/moonbridge" },
+    });
+    expect(sent.statusCode).toBe(201);
+
+    const metrics = (await app.inject({ url: `/school/groups/${groupId}/metrics`, headers: auth(t) })).json();
+    expect(metrics.feedback).toMatchObject([{ name: "Анна", role: "student", page: "/moonbridge", message: "Кнопка «Дальше» не нажимается", user_agent: "Mozilla/5.0 (iPhone)" }]);
+    expect((await app.inject({ url: "/admin/feedback" })).statusCode).toBe(401);
+    expect((await app.inject({ url: "/admin/feedback", headers: auth("admin-secret") })).json().feedback).toHaveLength(1);
+  });
+});

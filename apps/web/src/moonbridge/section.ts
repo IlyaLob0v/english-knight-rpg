@@ -19,6 +19,8 @@ export interface SectionDeps {
   navigate: (path: string) => void;
   /** The student's school, for the board in the lobby. */
   board?: Dashboard;
+  /** "Сообщить о проблеме" under the hotel map, for signed-in testers. */
+  feedback?: () => HTMLElement;
 }
 
 const KEY = "moonbridge";
@@ -169,6 +171,7 @@ function renderMap(root: HTMLElement, view: HotelView, plan: ShiftPlan | undefin
       ...[lobbyBoard(d.board, d), shiftCard(plan, state, today, d)].filter((x): x is HTMLElement => x !== undefined),
       play,
       map,
+      ...(d.feedback ? [d.feedback()] : []),
     ),
   );
 }

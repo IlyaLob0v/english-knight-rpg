@@ -1,6 +1,6 @@
 import type { Task } from "@moonbridge/content";
 import { beforeAll, describe, expect, it } from "vitest";
-import { checkAnswer, deriveRating, editDistance, isTypoOf, Rating, typoBudget } from "../src/index.js";
+import { checkAnswer, deriveRating, displayResponse, editDistance, isTypoOf, Rating, typoBudget } from "../src/index.js";
 import { loadBundle } from "./fixtures.js";
 
 let tasks: Record<string, Task>;
@@ -126,6 +126,13 @@ describe("checkAnswer on the four Moonbridge types", () => {
     expect(checkAnswer(t, "0")).toMatchObject({ correct: false, errorType: "comprehension.misread_prompt" });
     expect(checkAnswer(t, "1")).toMatchObject({ correct: false, match: "unclassified" });
     expect(checkAnswer(t, "12")).toMatchObject({ correct: false, match: "unclassified" });
+  });
+
+  it("shows the student's answer as they saw it: the option's text, the word they tapped", () => {
+    expect(displayResponse(tasks["A1_PastSimple_01_q5"]!, "a")).toBe("eated");
+    expect(displayResponse(tasks["A1_VerbToBe_01_q16"]!, "0")).toBe("My");
+    expect(displayResponse(tasks["A1_VerbToBe_01_q16"]!, "12")).toBe("12");
+    expect(displayResponse(tasks["A1_PastSimple_01_q3"]!, "goed")).toBe("goed");
   });
 });
 

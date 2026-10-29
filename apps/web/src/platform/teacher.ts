@@ -212,6 +212,7 @@ function groupCard(g: GroupView, dash: Dashboard, progress: GroupProgress | unde
     progress ? studentsTable(progress) : el("p", {}, members.length ? members.map((m) => m.name).join(", ") : "Учеников пока нет"),
     inviteButton,
     inviteBox,
+    el("a", { class: "metrics-link", href: `/teacher/metrics/${g.group_id}`, "data-link": "", "data-metrics": g.group_id }, "Метрики пилота →"),
     el("h3", {}, "Домашка"),
     ...(homework.length ? homework.map((h) => homeworkItem(h, members.length, now, d)) : [el("p", { class: "muted" }, "Ещё ничего не задано.")]),
     newHomeworkForm(g, d, rerender),

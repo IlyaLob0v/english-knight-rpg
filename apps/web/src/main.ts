@@ -6,6 +6,8 @@ import { askProfile, joinGroup, loadProfile, saveProfile, signIn, signOut } from
 import { loadDashboard, renderHomework } from "./platform/school.js";
 import { renderStudentReport } from "./platform/report.js";
 import { renderContent } from "./platform/content.js";
+import { feedbackBox } from "./platform/feedback.js";
+import { renderMetrics } from "./platform/metrics.js";
 import { renderTeacher } from "./platform/teacher.js";
 import { renderToday } from "./platform/today.js";
 import { IdbJournal, IdbKeyValue, IdbOutboxStore, openPlayerDb, type KeyValue } from "./storage/idb.js";
@@ -131,24 +133,32 @@ async function boot(): Promise<void> {
       return undefined;
     }
   };
+  // The page a tester reports from, and the one before it: a report sent from Today is often about the game.
+  let previousPath = "";
+  let currentPath = location.pathname;
+  const feedback = () =>
+    feedbackBox({ api, token: () => (session.kind === "account" ? session.token : undefined), page: () => (previousPath && previousPath !== currentPath ? `${currentPath} (до этого ${previousPath})` : currentPath) });
   const navigate = (path: string) => {
     if (path !== location.pathname) history.pushState(null, "", path);
     void route();
   };
   const route = async () => {
     const path = location.pathname;
+    if (path !== currentPath) [previousPath, currentPath] = [currentPath, path];
     document.body.dataset.section = path.startsWith("/moonbridge") ? "moonbridge" : "platform";
     if (path === "/moonbridge" || path.startsWith("/moonbridge/")) {
       // A separate chunk: the platform never downloads the game unless the student opens it.
       const { mountMoonbridge } = await import("./moonbridge/section.js");
       cacheLoadedAssets();
       const board = await dashboard();
-      return mountMoonbridge(root, path, { learner, kv, mediaBase, navigate, ...(board ? { board } : {}) });
+      return mountMoonbridge(root, path, { learner, kv, mediaBase, navigate, ...(board ? { board } : {}), ...(session.kind === "account" ? { feedback } : {}) });
     }
     const homeworkId = /^\/homework\/([A-Za-z0-9_]+)$/.exec(path)?.[1];
     if (homeworkId && session.kind === "account") return renderHomework(root, homeworkId, { api, token: session.token, kv: local, navigate });
     if (path === "/teacher" && session.account?.role === "teacher") return renderTeacher(root, { api, token: session.token, kv: local });
     if (path === "/teacher/content" && session.account?.role === "teacher") return renderContent(root, { api, token: session.token, kv: local });
+    const metricsGroup = /^\/teacher\/metrics\/([A-Za-z0-9_]+)$/.exec(path)?.[1];
+    if (metricsGroup && session.account?.role === "teacher") return renderMetrics(root, metricsGroup, { api, token: session.token });
     const studentId = /^\/teacher\/student\/([A-Za-z0-9_]+)$/.exec(path)?.[1];
     if (studentId && session.account?.role === "teacher") {
       return renderStudentReport(root, studentId, new URLSearchParams(location.search).get("week") ?? undefined, { api, token: session.token, navigate });
@@ -162,7 +172,7 @@ async function boot(): Promise<void> {
       profile,
       learner,
       kv,
-      ...(session.account ? { school: { dashboard: board, role: session.account.role, onSignOut, ...(week ? { week } : {}) } } : {}),
+      ...(session.account ? { school: { dashboard: board, role: session.account.role, onSignOut, feedback: feedback(), ...(week ? { week } : {}) } } : {}),
     });
     cacheLoadedAssets();
   };

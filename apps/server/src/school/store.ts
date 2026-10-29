@@ -1,5 +1,6 @@
 import type { Attempt } from "@moonbridge/xapi";
 import type { Sql } from "../db/sql.js";
+import type { MetricAttempt } from "./metrics.js";
 
 export type Role = "student" | "teacher";
 
@@ -70,6 +71,18 @@ export interface PracticeSummary {
   errors: { errorType: string; count: number }[];
   modes: { mode: string; answers: number; right: number }[];
   lastAnsweredAt: Date | null;
+}
+
+/** A tester's report of a problem, with where it happened. */
+export interface Feedback {
+  feedbackId: string;
+  accountId: string;
+  name: string;
+  role: Role;
+  page: string;
+  message: string;
+  userAgent: string;
+  createdAt: Date;
 }
 
 export class LoginTakenError extends Error {
@@ -403,5 +416,78 @@ export class SchoolStore {
       modes: modes.rows.map((r) => ({ mode: r.mode, answers: r.n, right: r.right })),
       lastAnsweredAt: t.last_at,
     };
+  }
+
+  /** Every answer of these players in a time window, for the pilot's metrics. */
+  async attemptsOf(playerIds: string[], from: Date, to: Date): Promise<MetricAttempt[]> {
+    if (!playerIds.length) return [];
+    const { rows } = await this.sql.query<{
+      player_id: string;
+      answered_at: Date;
+      task_id: string;
+      success: boolean;
+      error_type: string | null;
+      attempt_no: number;
+      duration_ms: number;
+      mode: string | null;
+    }>(
+      `SELECT player_id, answered_at, task_id, success, error_type, attempt_no, duration_ms, mode FROM attempts
+       WHERE player_id = ANY($1::text[]) AND answered_at >= $2 AND answered_at < $3 ORDER BY answered_at`,
+      [playerIds, from, to],
+    );
+    return rows.map((r) => ({
+      playerId: r.player_id,
+      answeredAt: new Date(r.answered_at),
+      taskId: r.task_id,
+      success: r.success,
+      errorType: r.error_type,
+      attemptNo: r.attempt_no,
+      durationMs: r.duration_ms,
+      mode: r.mode,
+    }));
+  }
+
+  /** The first answer of any of these players, if there is one. */
+  async firstAnswerOf(playerIds: string[]): Promise<Date | undefined> {
+    if (!playerIds.length) return undefined;
+    const { rows } = await this.sql.query<{ at: Date | null }>("SELECT min(answered_at) AS at FROM attempts WHERE player_id = ANY($1::text[])", [playerIds]);
+    return rows[0]?.at ? new Date(rows[0].at) : undefined;
+  }
+
+  /** The Moscow date (YYYY-MM-DD) the group's pilot starts, if the teacher set it. */
+  async pilotFrom(groupId: string): Promise<string | undefined> {
+    const { rows } = await this.sql.query<{ d: string | null }>("SELECT to_char(pilot_from, 'YYYY-MM-DD') AS d FROM school_groups WHERE group_id = $1", [groupId]);
+    return rows[0]?.d ?? undefined;
+  }
+
+  async setPilotFrom(groupId: string, date: string): Promise<void> {
+    await this.sql.query("UPDATE school_groups SET pilot_from = $2::date WHERE group_id = $1", [groupId, date]);
+  }
+
+  async addFeedback(f: { accountId: string; page: string; message: string; userAgent: string }): Promise<string> {
+    const id = newId("fb", 12);
+    await this.sql.query("INSERT INTO feedback (feedback_id, account_id, page, message, user_agent) VALUES ($1, $2, $3, $4, $5)", [id, f.accountId, f.page, f.message, f.userAgent]);
+    return id;
+  }
+
+  /** Reports from these accounts (or from everyone), the newest first. */
+  async feedback(accountIds?: string[], limit = 100): Promise<Feedback[]> {
+    const { rows } = await this.sql.query<{ feedback_id: string; account_id: string; name: string; role: Role; page: string; message: string; user_agent: string; created_at: Date }>(
+      `SELECT f.feedback_id, f.account_id, a.name, a.role, f.page, f.message, f.user_agent, f.created_at
+       FROM feedback f JOIN accounts a ON a.account_id = f.account_id
+       WHERE $1::text[] IS NULL OR f.account_id = ANY($1::text[])
+       ORDER BY f.created_at DESC LIMIT $2`,
+      [accountIds ?? null, limit],
+    );
+    return rows.map((r) => ({
+      feedbackId: r.feedback_id,
+      accountId: r.account_id,
+      name: r.name,
+      role: r.role,
+      page: r.page,
+      message: r.message,
+      userAgent: r.user_agent,
+      createdAt: new Date(r.created_at),
+    }));
   }
 }

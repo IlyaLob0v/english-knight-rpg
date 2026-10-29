@@ -69,7 +69,7 @@ export class Stage {
     const result = await this.d.learner.answer(task.task_id, answer, context);
     if (!(result.outcome.correct && result.outcome.match === "accepted")) {
       const label = result.outcome.errorType ? this.d.learner.bundle.taxonomy.error_types.find((t) => t.id === result.outcome.errorType)?.label.ru : undefined;
-      await showFeedback(this.box, result.outcome, label);
+      await showFeedback(this.box, result.outcome, label, task);
     }
     return result;
   }
