@@ -50,6 +50,7 @@ pnpm dev:web            # платформа на http://localhost:5173 (вме�
 pnpm e2e                # собрать платформу и пройти все три сценария в Chromium на экране 390 px (скриншоты в e2e/.artifacts/)
 pnpm e2e:school         # только школа: преподаватель, приглашение, файл, вход со второго телефона
 pnpm e2e:pilot          # репетиция пилота: три ученика пять дней, затем страница метрик
+pnpm demo               # платформа для ручного теста: данные в data/demo/, готовые аккаунты, адрес для телефона в той же Wi-Fi
 
 docker compose -f deploy/stand/compose.yaml --env-file deploy/stand/.env up -d --build   # стенд на сервере (docs/stand.md)
 pnpm lms:up             # стенд в Docker: Postgres, LRS, Moodle (docs/lms-setup.md)
@@ -138,6 +139,6 @@ pnpm lms:down
 - **Журнал ответов**: шлюз сохраняет каждый `answered` из приёма xAPI в таблицу `attempts` (повторная отправка из офлайн-очереди не дублирует), отсюда считается кабинет преподавателя без запросов к LRS.
 - **Контент из таблицы**: `GET /school/content`, `GET /school/content/sheet` (.xlsx), `POST /school/content/check` и `/publish` (файл .xlsx телом запроса или `{ "url": "<ссылка на Google Таблицу>" }`), только для преподавателей. Версии лежат в `content_versions`.
 - **Школа**: `/auth/login` (после 5 неверных паролей к одному логину или 30 с одного адреса за 15 минут — пауза, `429`), `/invites/:code` и `/invites/:code/join`, `/school/dashboard`, группы, приглашения и домашка преподавателя, `PUT /school/homework/:id/submission` (файл до 50 МБ телом запроса), скачивание по ссылке на 5 минут, `/school/review-queue` и оценка, `/school/groups/:id/progress`, `/school/students/:id/report?week=`, сброс пароля, `/school/groups/:id/metrics` и `PUT /school/groups/:id/pilot`, `POST /feedback` и `GET /admin/feedback`. Файлы лежат в бакете S3 (`S3_BUCKET`, на стенде — Yandex Object Storage) или, без него, в `UPLOAD_DIR`.
-- **Postgres**: без `DATABASE_URL` шлюз поднимает Postgres в своём процессе (PGlite) и всё забывает при перезапуске; в продакшене база обязательна. Миграции применяются при старте.
+- **Postgres**: без `DATABASE_URL` шлюз поднимает Postgres в своём процессе (PGlite) и всё забывает при перезапуске, а с `PGLITE_DIR=<папка>` хранит данные в папке (так работает `pnpm demo`); в продакшене база обязательна. Миграции применяются при старте.
 - **Стенд**: `Dockerfile` и `deploy/stand/` — Postgres, LRS, шлюз и Caddy с HTTPS на одной машине в российском регионе; пошагово в [docs/stand.md](docs/stand.md).
 - **LTI 1.3 и AGS** (заморожено): код и тесты остаются на случай, если платформу понадобится открыть из внешней LMS. Стенд Moodle описан в [docs/lms-setup.md](docs/lms-setup.md).

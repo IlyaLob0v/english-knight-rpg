@@ -29,7 +29,8 @@ if (parseErrors.length || !result.ok || !result.content) {
   process.exit(1);
 }
 
-const db = config.databaseUrl ? connectPostgres(config.databaseUrl) : undefined;
+// PGLITE_DIR: Postgres in this process that keeps its data in a folder, for testing by hand (pnpm demo).
+const db = config.databaseUrl ? connectPostgres(config.databaseUrl) : config.pgliteDir ? await memoryPostgres(config.pgliteDir) : undefined;
 if (db) {
   const applied = await migrate(db);
   if (applied.length) console.info(`database migrated: ${applied.join(", ")}`);
