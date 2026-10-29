@@ -176,3 +176,31 @@ details.new-homework summary { cursor: pointer; color: var(--accent); padding: 8
 .sheet-report li { margin: 4px 0; }
 .sheet-ok { color: var(--good); }
 .content-link { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+/* Pilot metrics */
+.metrics-link { display: inline-block; margin: 10px 0 4px; font-weight: 600; }
+.metrics, .metric-students, .metric-errors, .feedback-list { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 8px; }
+.metric { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--edge); background: #1f1b2b; }
+.metric-label { grid-column: 1 / -1; }
+.metric-value { font-size: 20px; font-family: Georgia, serif; }
+.metric-status { align-self: center; justify-self: end; font-size: 13px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--edge); color: var(--ink-dim); }
+.metric.ok .metric-status { color: var(--good); border-color: var(--good); }
+.metric.below .metric-status { color: var(--bad); border-color: var(--bad); }
+.metric-target { grid-column: 1 / -1; }
+.metric.interview { grid-template-columns: 1fr; }
+.metric-weeks { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 8px; }
+.metric-weeks li { display: grid; gap: 2px; }
+.metric-weeks li.running > span:first-child { color: var(--ink-dim); }
+.metric-students li, .metric-errors li { display: grid; gap: 2px; }
+.metric-errors li.up .muted { color: var(--good); }
+.metric-errors li.down .muted { color: var(--bad); }
+.feedback-list li { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--edge); background: #1f1b2b; }
+.feedback-list .small { font-size: 12px; overflow-wrap: anywhere; }
+.how summary { cursor: pointer; font-family: Georgia, serif; font-size: 19px; }
+.how ul { padding-left: 18px; }
+
+/* "Сообщить о проблеме" */
+.feedback { text-align: center; margin-top: 18px; }
+.feedback-form { display: grid; gap: 8px; margin-top: 8px; text-align: left; }
+.feedback-form textarea { resize: vertical; font-size: 16px; }
+.feedback + .sign-out { margin-top: 4px; }

@@ -34,7 +34,9 @@ async function main(): Promise<void> {
   page.on("request", (r) => r.url().includes("/assets/") && chunks.push(new URL(r.url()).pathname));
   let accepted = 0;
   context.on("response", async (r) => {
-    if (r.url().endsWith("/api/xapi/statements") && r.status() === 202) accepted += ((await r.json()) as { accepted: number }).accepted;
+    if (!r.url().endsWith("/api/xapi/statements") || r.status() !== 202) return;
+    const n = ((await r.json()) as { accepted: number }).accepted;
+    accepted += n;
   });
   const noSideScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 

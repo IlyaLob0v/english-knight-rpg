@@ -96,6 +96,13 @@ export function checkAnswer(task: Task, raw: Response): CheckOutcome {
 }
 
 /** What the player is shown as the right answer: option text, the corrected word, or the first accepted string. */
+/** The student's answer as they saw it: the option's text rather than its id, the word rather than its position. */
+export function displayResponse(task: Task, response: string): string {
+  if (task.type === "choice" || task.type === "translate_en_ru") return task.presentation.options?.find((o) => o.id === response)?.text ?? response;
+  if (task.type === "find_error" && /^\d+$/.test(response)) return task.presentation.tokens?.[Number(response)] ?? response;
+  return response;
+}
+
 export function displayAnswer(task: Task): string {
   const first = task.answer.accepted[0]!;
   if (task.type === "choice" || task.type === "translate_en_ru") return task.presentation.options?.find((o) => o.id === first)?.text ?? first;

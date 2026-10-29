@@ -26,7 +26,7 @@ packages/
 apps/
   web/       @moonbridge/web       платформа в браузере (PWA): вход и приглашения, «Сегодня» (занятие, домашка), сдача файла, кабинет преподавателя; раздел Moonbridge грузится отдельно по /moonbridge
   server/    @moonbridge/server    шлюз: аккаунты, группы, домашка и файлы, Content API, медиа, приём xAPI → LRS, прогресс, Postgres (migrations/); LTI 1.3 заморожен
-e2e/         @moonbridge/e2e       Playwright на экране телефона 390 px: эпизод и смена в Moonbridge; школа от приглашения до файла у преподавателя
+e2e/         @moonbridge/e2e       Playwright на экране телефона 390 px: эпизод и смена в Moonbridge; школа от приглашения до файла у преподавателя; репетиция пилота (3 ученика × 5 дней)
 compose.yaml, docker/              локальный стенд для разработки: Postgres, LRS (Yet SQL LRS), Moodle 4.5 (заморожен)
 Dockerfile, deploy/stand/          стенд для пилота: шлюз, платформа за Caddy с HTTPS, Postgres, LRS (docs/stand.md)
 docs/adr/                          архитектурные решения
@@ -47,8 +47,9 @@ pnpm typecheck
 pnpm check              # всё, что проверяет CI, одной командой
 pnpm dev:server         # шлюз на http://localhost:8787 (настройки: apps/server/.env.example)
 pnpm dev:web            # платформа на http://localhost:5173 (вместе со шлюзом)
-pnpm e2e                # собрать платформу и пройти оба сценария в Chromium на экране 390 px (скриншоты в e2e/.artifacts/)
+pnpm e2e                # собрать платформу и пройти все три сценария в Chromium на экране 390 px (скриншоты в e2e/.artifacts/)
 pnpm e2e:school         # только школа: преподаватель, приглашение, файл, вход со второго телефона
+pnpm e2e:pilot          # репетиция пилота: три ученика пять дней, затем страница метрик
 
 docker compose -f deploy/stand/compose.yaml --env-file deploy/stand/.env up -d --build   # стенд на сервере (docs/stand.md)
 pnpm lms:up             # стенд в Docker: Postgres, LRS, Moodle (docs/lms-setup.md)
@@ -122,6 +123,13 @@ pnpm lms:down
 
 Время занятий и сроки домашки — московские.
 
+## Пилот: метрики и сообщения о проблемах
+
+Как провести прогон на друзьях: [docs/friends-run.md](docs/friends-run.md).
+
+- **Метрики пилота.** В кабинете у группы ссылка «Метрики пилота →»: цели из плана (дни с практикой в неделю, активные на 4-й неделе, медиана обязательной сессии, добровольные сессии, вещи из бюро находок, рост точности по типам ошибок), разбивка по неделям и по ученикам, кнопка «Скачать по неделям (.csv)» для еженедельного снимка. Недели считаются от «Начала пилота», которое преподаватель задаёт там же; пока его нет — от недели первого ответа. Всё считается из журнала ответов, определения — в [ADR 0012](docs/adr/0012-pilot-metrics.md) и в блоке «Как считается» на странице.
+- **«Сообщить о проблеме».** Внизу «Сегодня» и под картой отеля: ученик пишет, что случилось, шлюз сохраняет текст со страницей и браузером телефона. Преподаватель видит сообщения своей группы на странице метрик, все сообщения — `curl https://<домен>/api/admin/feedback -H "Authorization: Bearer $ADMIN_TOKEN"`.
+
 ## Шлюз
 
 - **Content API**: `/content/bundle` (с ETag), `/content/manifest`, `PUT /content/source` (админ-токен) заменяет контент только проверенным.
@@ -129,7 +137,7 @@ pnpm lms:down
 - **Прогресс**: бэкап прогресса ученика между устройствами.
 - **Журнал ответов**: шлюз сохраняет каждый `answered` из приёма xAPI в таблицу `attempts` (повторная отправка из офлайн-очереди не дублирует), отсюда считается кабинет преподавателя без запросов к LRS.
 - **Контент из таблицы**: `GET /school/content`, `GET /school/content/sheet` (.xlsx), `POST /school/content/check` и `/publish` (файл .xlsx телом запроса или `{ "url": "<ссылка на Google Таблицу>" }`), только для преподавателей. Версии лежат в `content_versions`.
-- **Школа**: `/auth/login` (после 5 неверных паролей к одному логину или 30 с одного адреса за 15 минут — пауза, `429`), `/invites/:code` и `/invites/:code/join`, `/school/dashboard`, группы, приглашения и домашка преподавателя, `PUT /school/homework/:id/submission` (файл до 50 МБ телом запроса), скачивание по ссылке на 5 минут, `/school/review-queue` и оценка, `/school/groups/:id/progress`, `/school/students/:id/report?week=`, сброс пароля. Файлы лежат в бакете S3 (`S3_BUCKET`, на стенде — Yandex Object Storage) или, без него, в `UPLOAD_DIR`.
+- **Школа**: `/auth/login` (после 5 неверных паролей к одному логину или 30 с одного адреса за 15 минут — пауза, `429`), `/invites/:code` и `/invites/:code/join`, `/school/dashboard`, группы, приглашения и домашка преподавателя, `PUT /school/homework/:id/submission` (файл до 50 МБ телом запроса), скачивание по ссылке на 5 минут, `/school/review-queue` и оценка, `/school/groups/:id/progress`, `/school/students/:id/report?week=`, сброс пароля, `/school/groups/:id/metrics` и `PUT /school/groups/:id/pilot`, `POST /feedback` и `GET /admin/feedback`. Файлы лежат в бакете S3 (`S3_BUCKET`, на стенде — Yandex Object Storage) или, без него, в `UPLOAD_DIR`.
 - **Postgres**: без `DATABASE_URL` шлюз поднимает Postgres в своём процессе (PGlite) и всё забывает при перезапуске; в продакшене база обязательна. Миграции применяются при старте.
 - **Стенд**: `Dockerfile` и `deploy/stand/` — Postgres, LRS, шлюз и Caddy с HTTPS на одной машине в российском регионе; пошагово в [docs/stand.md](docs/stand.md).
 - **LTI 1.3 и AGS** (заморожено): код и тесты остаются на случай, если платформу понадобится открыть из внешней LMS. Стенд Moodle описан в [docs/lms-setup.md](docs/lms-setup.md).

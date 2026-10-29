@@ -8,8 +8,9 @@ import type { ServerConfig } from "../config.js";
 import type { Session, SessionTokens } from "../session.js";
 import { FileTooLargeError, type FileStore } from "./files.js";
 import { FailureLimiter } from "./limits.js";
+import { pilotMetrics } from "./metrics.js";
 import { DUMMY_HASH, hashPassword, verifyPassword } from "./passwords.js";
-import { LoginTakenError, type Account, type Group, type Homework, type PracticeSummary, type SchoolStore, type Submission } from "./store.js";
+import { LoginTakenError, type Account, type Feedback, type Group, type Homework, type PracticeSummary, type SchoolStore, type Submission } from "./store.js";
 
 export interface SchoolDeps {
   config: ServerConfig;
@@ -412,6 +413,72 @@ export async function schoolRoutes(app: FastifyInstance, d: SchoolDeps): Promise
     const password = [...crypto.getRandomValues(new Uint8Array(10))].map((b) => alphabet[b % alphabet.length]).join("");
     await d.school.setPassword(student.accountId, await hashPassword(password));
     return { login: student.login, password };
+  });
+
+  // ---------- The pilot: metrics for a group, and the testers' problem reports
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/;
+  const feedbackView = (f: Feedback) => ({ id: f.feedbackId, name: f.name, role: f.role, page: f.page, message: f.message, user_agent: f.userAgent, at: f.createdAt.toISOString() });
+
+  /**
+   * The pilot's metrics for one group, week by week from the pilot's first Monday: the date the
+   * teacher set, or else the week of the group's first answer. Definitions: school/metrics.ts.
+   */
+  app.get<{ Params: { id: string } }>("/school/groups/:id/metrics", { preHandler: requireTeacher }, async (req, reply) => {
+    const g = await ownGroup(req, reply);
+    if (!g) return;
+    const members = (await d.school.members(g.groupId)).filter((m) => m.role === "student");
+    const players = members.map((m) => m.playerId);
+    const set = await d.school.pilotFrom(g.groupId);
+    const at = now();
+    const from = weekStart(set ? new Date(`${set}T12:00:00+03:00`) : ((await d.school.firstAnswerOf(players)) ?? at));
+    const to = new Date(Math.max(at.getTime(), from.getTime() + DAY_MS));
+    const tasks = d.content?.live.bundle.tasks;
+    const metrics = pilotMetrics({
+      students: members.map((m) => ({ id: m.accountId, name: m.name, playerId: m.playerId })),
+      attempts: await d.school.attemptsOf(players, from, to),
+      from,
+      now: to,
+      taskErrorTypes: (taskId) => tasks?.[taskId]?.answer.known_errors?.map((k) => k.error_type) ?? [],
+      ...(d.errorLabel ? { errorLabel: d.errorLabel } : {}),
+    });
+    const feedback = await d.school.feedback([req.account!.accountId, ...members.map((m) => m.accountId)], 50);
+    return { group: { id: g.groupId, name: g.name }, pilot_from: set ?? null, metrics, feedback: feedback.map(feedbackView) };
+  });
+
+  /** Sets the pilot's first day; weeks are counted from that day's Monday. */
+  app.put<{ Params: { id: string }; Body: { from: string } }>(
+    "/school/groups/:id/pilot",
+    { preHandler: requireTeacher, schema: { body: { type: "object", required: ["from"], additionalProperties: false, properties: { from: { type: "string", pattern: dateOnly.source } } } } },
+    async (req, reply) => {
+      const g = await ownGroup(req, reply);
+      if (!g) return;
+      if (Number.isNaN(Date.parse(`${req.body.from}T00:00:00Z`))) return reply.code(400).send({ error: "date" });
+      await d.school.setPilotFrom(g.groupId, req.body.from);
+      return { pilot_from: req.body.from };
+    },
+  );
+
+  /** "Сообщить о проблеме": what went wrong, on which page and phone. */
+  app.post<{ Body: { message: string; page: string } }>(
+    "/feedback",
+    {
+      preHandler: requireAccount,
+      schema: { body: { type: "object", required: ["message", "page"], additionalProperties: false, properties: { message: { type: "string", minLength: 1, maxLength: 4000 }, page: { type: "string", maxLength: 300 } } } },
+    },
+    async (req, reply) => {
+      const message = req.body.message.trim();
+      if (!message) return reply.code(400).send({ error: "message", message: "Напишите, что случилось" });
+      const id = await d.school.addFeedback({ accountId: req.account!.accountId, page: req.body.page, message, userAgent: String(req.headers["user-agent"] ?? "").slice(0, 300) });
+      return reply.code(201).send({ id });
+    },
+  );
+
+  /** Every report, for Ilya: curl with the admin token. */
+  app.get("/admin/feedback", async (req, reply) => {
+    if (!d.config.adminToken || req.headers.authorization !== `Bearer ${d.config.adminToken}`) {
+      return reply.code(d.config.adminToken ? 401 : 403).send({ error: "admin token required" });
+    }
+    return { feedback: (await d.school.feedback(undefined, 500)).map(feedbackView) };
   });
 
   // ---------- Teacher: groups, invitations, homework

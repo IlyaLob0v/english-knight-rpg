@@ -1,4 +1,4 @@
-export { checkAnswer, displayAnswer, isTypoOf, typoBudget, type CheckOutcome, type MatchKind, type Response } from "./check.js";
+export { checkAnswer, displayAnswer, displayResponse, isTypoOf, typoBudget, type CheckOutcome, type MatchKind, type Response } from "./check.js";
 export { editDistance } from "./levenshtein.js";
 export { deriveRating, type RatingInput } from "./rating.js";
 export { RepeatSchedule, type RepeatItem, type RepeatOptions, type RepeatEvent } from "./repeats.js";

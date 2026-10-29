@@ -1,5 +1,5 @@
 import type { Task } from "@moonbridge/content";
-import type { CheckOutcome, Response } from "@moonbridge/learning";
+import { displayResponse, type CheckOutcome, type Response } from "@moonbridge/learning";
 import { el } from "./dom.js";
 
 export interface Answer {
@@ -136,14 +136,14 @@ export function askTask(root: HTMLElement, task: Task, o: AskOptions = {}): Prom
 }
 
 /** What happened, with the author's feedback; resolves when the student continues. */
-export function showFeedback(root: HTMLElement, outcome: CheckOutcome, errorLabel?: string): Promise<void> {
+export function showFeedback(root: HTMLElement, outcome: CheckOutcome, errorLabel?: string, task?: Task): Promise<void> {
   return new Promise((resolve) => {
     const kind = outcome.match === "typo" ? "typo" : outcome.correct ? "right" : "wrong";
     const box = el("div", { class: `feedback ${kind}`, "data-outcome": kind });
     box.append(el("div", { class: "feedback-title" }, kind === "right" ? "Верно!" : kind === "typo" ? "Почти: опечатка" : "Не совсем"));
     if (kind !== "right") {
       box.append(
-        el("div", {}, "Ваш ответ: ", el("span", { class: kind === "typo" ? "typo" : "wrong", lang: "en" }, outcome.response || "—")),
+        el("div", {}, "Ваш ответ: ", el("span", { class: kind === "typo" ? "typo" : "wrong", lang: "en" }, (task ? displayResponse(task, outcome.response) : outcome.response) || "—")),
         el("div", {}, "Верно: ", el("span", { class: "right", lang: "en" }, outcome.correctForm)),
       );
       if (outcome.feedback) box.append(el("div", { class: "feedback-note" }, outcome.feedback));

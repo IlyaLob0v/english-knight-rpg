@@ -17,7 +17,7 @@ export interface TodayDeps {
   kv: KeyValue;
   now?: Date;
   /** A signed-in student's or teacher's school; undefined for guests and LMS launches. */
-  school?: { dashboard: Dashboard | undefined; role: "student" | "teacher"; onSignOut: () => void; week?: StudentReport };
+  school?: { dashboard: Dashboard | undefined; role: "student" | "teacher"; onSignOut: () => void; week?: StudentReport; feedback?: HTMLElement };
 }
 
 /** The platform's home screen: what to do today, across courses and sections. */
@@ -81,6 +81,7 @@ export async function renderToday(root: HTMLElement, d: TodayDeps): Promise<void
       el("header", { class: "platform-head" }, el("div", { class: "brand" }, "Школа английского"), el("h1", {}, `${greeting(now)}, ${d.profile.name}`)),
       el("h2", { class: "today-title" }, "Сегодня"),
       ...cards,
+      ...(d.school?.feedback ? [d.school.feedback] : []),
       ...(d.school ? [el("button", { class: "link sign-out", type: "button", onclick: d.school.onSignOut }, "Выйти")] : []),
     ),
   );
