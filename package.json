@@ -12,6 +12,8 @@
     "test:watch": "vitest",
     "content:validate": "pnpm --filter @moonbridge/content validate",
     "content:bundle": "pnpm --filter @moonbridge/content bundle",
+    "content:export": "pnpm --filter @moonbridge/content sheet:export",
+    "content:import": "pnpm --filter @moonbridge/content sheet:import",
     "dev:server": "pnpm --filter @moonbridge/server dev",
     "dev:server:lms": "pnpm --filter @moonbridge/server dev:lms",
     "dev:web": "pnpm --filter @moonbridge/web dev",

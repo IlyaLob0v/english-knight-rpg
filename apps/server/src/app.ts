@@ -6,6 +6,7 @@ import { buildBundle } from "@moonbridge/content/node";
 import { attemptOf, XapiProfile, Outbox, validateStatement, type Attempt, type Statement } from "@moonbridge/xapi";
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import type { ServerConfig } from "./config.js";
+import { LiveContent } from "./content/live.js";
 import { contextKey, type GradeOutcome, type GradeSync } from "./grades.js";
 import type { IdentityStore } from "./lti/identity.js";
 import type { ToolKeys } from "./lti/keys.js";
@@ -21,6 +22,10 @@ import type { Session, SessionTokens } from "./session.js";
 export interface AppDeps {
   config: ServerConfig;
   bundle: ContentBundle;
+  /** The live content, when teachers may publish from the content sheet; otherwise `bundle` is served as is. */
+  content?: LiveContent;
+  /** How the gateway reaches Google Sheets (tests pass a fake). */
+  fetchSheet?: typeof fetch;
   outbox: Outbox;
   tokens: SessionTokens;
   platforms: PlatformRegistry;
@@ -57,10 +62,10 @@ const MEDIA_TYPES: Record<string, string> = {
 };
 
 export async function buildApp(d: AppDeps): Promise<FastifyInstance> {
-  const app = Fastify({ logger: process.env.NODE_ENV !== "test", bodyLimit: 5 * 1024 * 1024 });
+  const app = Fastify({ logger: process.env.NODE_ENV !== "test", bodyLimit: 5 * 1024 * 1024, trustProxy: d.config.trustProxy });
   await app.register(formbody);
   const profile = new XapiProfile(d.config.xapiBaseIri);
-  let bundle = d.bundle;
+  const live = d.content ?? new LiveContent(d.bundle);
 
   const requireSession = async (req: FastifyRequest, reply: FastifyReply) => {
     const header = req.headers.authorization;
@@ -69,17 +74,17 @@ export async function buildApp(d: AppDeps): Promise<FastifyInstance> {
     req.session = session;
   };
 
-  app.get("/health", async () => ({ ok: true, content_hash: bundle.content_hash }));
+  app.get("/health", async () => ({ ok: true, content_hash: live.bundle.content_hash }));
 
   // ---------- Content API
   app.get("/content/bundle", async (req, reply) => {
-    const etag = `"${bundle.content_hash}"`;
+    const etag = `"${live.bundle.content_hash}"`;
     reply.header("ETag", etag).header("Cache-Control", "no-cache");
     if (req.headers["if-none-match"] === etag) return reply.code(304).send();
-    return bundle;
+    return live.bundle;
   });
 
-  app.get("/content/manifest", async () => ({ content_hash: bundle.content_hash, built_at: bundle.built_at }));
+  app.get("/content/manifest", async () => ({ content_hash: live.bundle.content_hash, built_at: live.bundle.built_at }));
 
   /** Art and recordings referenced by the content (portraits, backgrounds, listen_type audio), from content/media. */
   const mediaRoot = resolve(d.config.contentDir, "media");
@@ -103,8 +108,8 @@ export async function buildApp(d: AppDeps): Promise<FastifyInstance> {
     }
     const result = validateContent(req.body);
     if (!result.ok || !result.content) return reply.code(422).send({ error: "content invalid", issues: result.issues });
-    bundle = buildBundle(result.content);
-    return { content_hash: bundle.content_hash, warnings: result.issues };
+    live.bundle = buildBundle(result.content);
+    return { content_hash: live.bundle.content_hash, warnings: result.issues };
   });
 
   // ---------- Sessions
@@ -135,7 +140,8 @@ export async function buildApp(d: AppDeps): Promise<FastifyInstance> {
       tokens: d.tokens,
       school: d.school.store,
       files: d.school.files,
-      errorLabel: (id) => bundle.taxonomy.error_types.find((t) => t.id === id)?.label.ru,
+      errorLabel: (id) => live.bundle.taxonomy.error_types.find((t) => t.id === id)?.label.ru,
+      content: { live, ...(d.fetchSheet ? { fetch: d.fetchSheet } : {}) },
       ...(d.school.now ? { now: d.school.now } : {}),
     });
   }
@@ -188,7 +194,7 @@ export async function buildApp(d: AppDeps): Promise<FastifyInstance> {
     },
     async (req, reply) => {
       const s = req.session!;
-      const module = bundle.modules.find((m) => m.module_id === req.body.module_id);
+      const module = live.bundle.modules.find((m) => m.module_id === req.body.module_id);
       if (!module) return reply.code(404).send({ error: "unknown module" });
       if (req.body.correct > req.body.total) return reply.code(400).send({ error: "correct > total" });
       const scaled = req.body.correct / req.body.total;

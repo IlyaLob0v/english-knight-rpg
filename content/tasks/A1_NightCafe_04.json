@@ -1,0 +1,234 @@
+{
+  "$schema": "../../packages/content/schemas/task-set.schema.json",
+  "schema_version": "2.0",
+  "module_id": "A1_NightCafe_04",
+  "tasks": [
+    {
+      "task_id": "A1_NightCafe_04_can_i_have",
+      "concept_id": "requests.can_i_have",
+      "type": "choice",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "Pip: Hi! What would you like?",
+        "instruction_ru": "Как вежливо попросить чай?",
+        "options": [
+          { "id": "a", "text": "Can I have a tea, please?" },
+          { "id": "b", "text": "Give me tea." },
+          { "id": "c", "text": "I want tea now." }
+        ]
+      },
+      "answer": {
+        "accepted": ["a"],
+        "known_errors": [
+          { "match": ["b", "c"], "error_type": "lexis.wrong_word", "feedback": "Так звучит грубо. Вежливо: Can I have…, please?" }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NightCafe_04_polite",
+      "concept_id": "requests.can_i_have",
+      "type": "transform",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Make a polite request.",
+        "instruction_ru": "Сделайте вежливую просьбу: Can I have…, please?",
+        "source": "I have a coffee."
+      },
+      "answer": {
+        "accepted": ["Can I have a coffee, please?", "Can I have a coffee please?"],
+        "known_errors": [
+          {
+            "match": ["I can have a coffee, please?", "I can have a coffee please?"],
+            "error_type": "grammar.word_order",
+            "feedback": "В вопросе can встаёт перед I: Can I have…?"
+          },
+          {
+            "match": ["Can I to have a coffee, please?", "Can I to have a coffee please?"],
+            "error_type": "grammar.auxiliary",
+            "feedback": "После can — без to: Can I have…?"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NightCafe_04_bill",
+      "concept_id": "requests.can_i_have",
+      "type": "gap_fill",
+      "difficulty": 1,
+      "presentation": { "prompt": "___ I have the bill, please?" },
+      "answer": {
+        "accepted": ["Can", "Could", "May"],
+        "known_errors": [
+          { "match": ["Do"], "error_type": "grammar.auxiliary", "feedback": "Просьба начинается с can: Can I have the bill?" }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NightCafe_04_translate_order",
+      "concept_id": "requests.can_i_have",
+      "type": "translate_ru_en",
+      "difficulty": 3,
+      "presentation": {
+        "prompt": "Pip is waiting for your order. Answer in English.",
+        "instruction_ru": "Переведите на английский.",
+        "source": "Можно мне кофе и яблоко, пожалуйста?"
+      },
+      "answer": {
+        "accepted": [
+          "Can I have a coffee and an apple, please?",
+          "Can I have a coffee and an apple please?",
+          "Can I have coffee and an apple, please?",
+          "Can I have coffee and an apple please?",
+          "Could I have a coffee and an apple, please?",
+          "Could I have coffee and an apple, please?"
+        ],
+        "known_errors": [
+          {
+            "match": ["I can have a coffee and an apple, please?", "I can have coffee and an apple, please?"],
+            "error_type": "grammar.word_order",
+            "feedback": "В вопросе can встаёт перед I: Can I have…?"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NightCafe_04_an_apple",
+      "concept_id": "articles.a_an",
+      "type": "gap_fill",
+      "difficulty": 1,
+      "presentation": { "prompt": "Can I have ___ apple pie, please?", "hint": "apple начинается с гласного звука" },
+      "answer": {
+        "accepted": ["an"],
+        "known_errors": [{ "match": ["a"], "error_type": "grammar.article", "feedback": "Перед гласным звуком — an: an apple pie." }]
+      }
+    },
+    {
+      "task_id": "A1_NightCafe_04_a_cup",
+      "concept_id": "articles.a_an",
+      "type": "gap_fill",
+      "difficulty": 1,
+      "presentation": { "prompt": "And ___ cup of moon tea." },
+      "answer": {
+        "accepted": ["a"],
+        "known_errors": [
+          { "match": ["an"], "error_type": "grammar.article", "feedback": "Cup начинается с согласного звука: a cup." },
+          { "match": ["the"], "error_type": "grammar.article", "feedback": "Чашку называем впервые: a cup." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NightCafe_04_find_error",
+      "concept_id": "articles.a_an",
+      "type": "find_error",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Pip wrote the menu. Find the wrong word.",
+        "instruction_ru": "Нажмите на слово с ошибкой.",
+        "tokens": ["We", "have", "a", "orange", "juice", "and", "a", "moon", "cake", "."]
+      },
+      "answer": {
+        "accepted": ["2"],
+        "correction": "an",
+        "known_errors": [
+          {
+            "match": ["6"],
+            "error_type": "comprehension.misread_prompt",
+            "feedback": "Перед moon a — верно. Ошибка раньше: an orange juice."
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NightCafe_04_how_much",
+      "concept_id": "numbers.how_much",
+      "type": "order_words",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Ask how much the cake is.",
+        "instruction_ru": "Соберите вопрос «Сколько стоит торт?».",
+        "tokens": ["is", "How", "the", "cake", "much"]
+      },
+      "answer": {
+        "accepted": ["How much is the cake"],
+        "known_errors": [
+          {
+            "match": ["How much the cake is"],
+            "error_type": "grammar.word_order",
+            "feedback": "В вопросе is встаёт перед the cake: How much is the cake?"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NightCafe_04_fifteen",
+      "concept_id": "numbers.how_much",
+      "type": "choice",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "Pip: It's 15 coins.",
+        "instruction_ru": "Как сказать 15?",
+        "options": [{ "id": "a", "text": "fifteen" }, { "id": "b", "text": "fifty" }, { "id": "c", "text": "five" }]
+      },
+      "answer": {
+        "accepted": ["a"],
+        "known_errors": [
+          { "match": ["b"], "error_type": "lexis.wrong_word", "feedback": "Fifty — 50. 15 — fifteen." },
+          { "match": ["c"], "error_type": "lexis.wrong_word", "feedback": "Five — 5. 15 — fifteen." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NightCafe_04_listen_pip",
+      "concept_id": "numbers.how_much",
+      "type": "listen_type",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Pip says how much it is. Type what she says.",
+        "instruction_ru": "Послушайте и напечатайте, что говорит Пип.",
+        "audio": "audio/A1_NightCafe_04_listen_pip.mp3"
+      },
+      "answer": {
+        "accepted": [
+          "That's twenty coins, please.",
+          "That is twenty coins, please.",
+          "That's 20 coins, please.",
+          "That is 20 coins, please."
+        ],
+        "known_errors": [
+          {
+            "match": ["That's twelve coins, please.", "That's 12 coins, please."],
+            "error_type": "lexis.wrong_word",
+            "feedback": "Twelve — 12, twenty — 20."
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_NightCafe_04_choose_price",
+      "concept_id": "numbers.how_much",
+      "type": "translate_en_ru",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "How much is a cup of tea?",
+        "instruction_ru": "Выберите перевод.",
+        "source": "How much is a cup of tea?",
+        "options": [
+          { "id": "a", "text": "Сколько стоит чашка чая?" },
+          { "id": "b", "text": "Сколько чашек чая?" },
+          { "id": "c", "text": "Можно чашку чая?" }
+        ]
+      },
+      "answer": {
+        "accepted": ["a"],
+        "known_errors": [
+          {
+            "match": ["b"],
+            "error_type": "comprehension.misread_prompt",
+            "feedback": "How much is…? — «сколько стоит?». «Сколько чашек» — How many cups."
+          },
+          { "match": ["c"], "error_type": "lexis.wrong_word", "feedback": "«Можно чашку чая?» — Can I have a cup of tea?" }
+        ]
+      }
+    }
+  ]
+}

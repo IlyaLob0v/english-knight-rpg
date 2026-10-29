@@ -1,0 +1,214 @@
+{
+  "$schema": "../../packages/content/schemas/task-set.schema.json",
+  "schema_version": "2.0",
+  "module_id": "A1_ThisIsMyRoom_03",
+  "tasks": [
+    {
+      "task_id": "A1_ThisIsMyRoom_03_there_is",
+      "concept_id": "there_is.there_are",
+      "type": "gap_fill",
+      "difficulty": 1,
+      "presentation": { "prompt": "There ___ a piano in the lobby.", "hint": "one piano" },
+      "answer": {
+        "accepted": ["is"],
+        "known_errors": [
+          { "match": ["are"], "error_type": "grammar.agreement", "feedback": "Пианино одно: there is." },
+          { "match": ["have", "has"], "error_type": "lexis.wrong_word", "feedback": "There is — «есть, находится». Have — «иметь»." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_ThisIsMyRoom_03_there_are",
+      "concept_id": "there_is.there_are",
+      "type": "choice",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "___ two ghosts in the lift.",
+        "instruction_ru": "В лифте два призрака. Как начать?",
+        "options": [{ "id": "a", "text": "There are" }, { "id": "b", "text": "There is" }, { "id": "c", "text": "It is" }]
+      },
+      "answer": {
+        "accepted": ["a"],
+        "known_errors": [
+          { "match": ["b"], "error_type": "grammar.agreement", "feedback": "Призраков два: there are." },
+          { "match": ["c"], "error_type": "lexis.wrong_word", "feedback": "It is — «это». «Есть, находятся» — there are." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_ThisIsMyRoom_03_is_there",
+      "concept_id": "there_is.there_are",
+      "type": "order_words",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Ask Kai about the hotel.",
+        "instruction_ru": "Соберите вопрос «Здесь есть кафе?».",
+        "tokens": ["there", "a", "Is", "café", "here"]
+      },
+      "answer": {
+        "accepted": ["Is there a café here"],
+        "known_errors": [
+          {
+            "match": ["There is a café here"],
+            "error_type": "grammar.word_order",
+            "feedback": "В вопросе is встаёт перед there: Is there…?"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_ThisIsMyRoom_03_listen_kai",
+      "concept_id": "there_is.there_are",
+      "type": "listen_type",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Kai is on the radio. Type what Kai says.",
+        "instruction_ru": "Послушайте и напечатайте, что говорит Кай.",
+        "audio": "audio/A1_ThisIsMyRoom_03_listen_kai.mp3"
+      },
+      "answer": {
+        "accepted": ["There are three bats in the lobby."],
+        "known_errors": [
+          { "match": ["There is three bats in the lobby."], "error_type": "grammar.agreement", "feedback": "Летучих мышей три: there are." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_ThisIsMyRoom_03_translate_room",
+      "concept_id": "there_is.there_are",
+      "type": "translate_ru_en",
+      "difficulty": 3,
+      "presentation": {
+        "prompt": "Kai asks about your room. Answer in English.",
+        "instruction_ru": "Переведите на английский.",
+        "source": "В моём номере есть кровать и два окна."
+      },
+      "answer": {
+        "accepted": [
+          "There is a bed and two windows in my room.",
+          "There's a bed and two windows in my room.",
+          "In my room there is a bed and two windows.",
+          "In my room there's a bed and two windows.",
+          "My room has a bed and two windows."
+        ],
+        "known_errors": [
+          {
+            "match": ["In my room is a bed and two windows."],
+            "error_type": "grammar.word_order",
+            "feedback": "Нужно there is: There is a bed and two windows in my room."
+          },
+          {
+            "match": ["There are a bed and two windows in my room."],
+            "error_type": "grammar.agreement",
+            "feedback": "Глагол по первому слову: there is a bed and two windows."
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_ThisIsMyRoom_03_these",
+      "concept_id": "demonstratives.this_these",
+      "type": "choice",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "___ keys are for room 13.",
+        "instruction_ru": "Ключи у вас в руке. Как сказать «эти ключи»?",
+        "options": [{ "id": "a", "text": "These" }, { "id": "b", "text": "This" }, { "id": "c", "text": "That" }]
+      },
+      "answer": {
+        "accepted": ["a"],
+        "known_errors": [{ "match": ["b", "c"], "error_type": "grammar.agreement", "feedback": "Ключей много, и они рядом: these." }]
+      }
+    },
+    {
+      "task_id": "A1_ThisIsMyRoom_03_that",
+      "concept_id": "demonstratives.this_these",
+      "type": "gap_fill",
+      "difficulty": 2,
+      "presentation": { "prompt": "Look at ___ man over there!", "hint": "один и далеко" },
+      "answer": {
+        "accepted": ["that"],
+        "known_errors": [
+          { "match": ["this"], "error_type": "lexis.wrong_word", "feedback": "Over there — далеко: that." },
+          { "match": ["those", "these"], "error_type": "grammar.agreement", "feedback": "Человек один: that." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_ThisIsMyRoom_03_choose_these",
+      "concept_id": "demonstratives.this_these",
+      "type": "translate_en_ru",
+      "difficulty": 1,
+      "presentation": {
+        "prompt": "These are my friends.",
+        "instruction_ru": "Выберите перевод.",
+        "source": "These are my friends.",
+        "options": [
+          { "id": "a", "text": "Это мои друзья." },
+          { "id": "b", "text": "Этот мой друг." },
+          { "id": "c", "text": "Там мои друзья." }
+        ]
+      },
+      "answer": {
+        "accepted": ["a"],
+        "known_errors": [
+          { "match": ["b"], "error_type": "grammar.agreement", "feedback": "These — о многих: «это мои друзья»." },
+          { "match": ["c"], "error_type": "lexis.wrong_word", "feedback": "These — «это, эти», а не «там»." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_ThisIsMyRoom_03_people",
+      "concept_id": "plurals.nouns",
+      "type": "gap_fill",
+      "difficulty": 1,
+      "presentation": { "prompt": "One person, two ___.", "hint": "не по правилу" },
+      "answer": {
+        "accepted": ["people"],
+        "known_errors": [
+          {
+            "match": ["persons", "peoples", "personss"],
+            "error_type": "grammar.overgeneralization",
+            "feedback": "Person во множественном числе — people."
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_ThisIsMyRoom_03_boxes",
+      "concept_id": "plurals.nouns",
+      "type": "gap_fill",
+      "difficulty": 1,
+      "presentation": { "prompt": "One box, three ___." },
+      "answer": {
+        "accepted": ["boxes"],
+        "known_errors": [
+          { "match": ["boxs"], "error_type": "grammar.overgeneralization", "feedback": "После x добавляем -es: boxes." },
+          { "match": ["box"], "error_type": "grammar.agreement", "feedback": "Коробок три — значит, boxes." }
+        ]
+      }
+    },
+    {
+      "task_id": "A1_ThisIsMyRoom_03_find_error",
+      "concept_id": "plurals.nouns",
+      "type": "find_error",
+      "difficulty": 2,
+      "presentation": {
+        "prompt": "Kai counts the guests. Find the wrong word.",
+        "instruction_ru": "Нажмите на слово с ошибкой.",
+        "tokens": ["There", "are", "five", "childs", "in", "the", "lobby", "."]
+      },
+      "answer": {
+        "accepted": ["3"],
+        "correction": "children",
+        "known_errors": [
+          {
+            "match": ["1"],
+            "error_type": "comprehension.misread_prompt",
+            "feedback": "Are здесь верно: детей пятеро. Ошибка в childs — нужно children."
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -8,6 +8,27 @@
       "background": "places/reception.webp",
       "unlocked_by": null,
       "characters": ["rocco"]
+    },
+    {
+      "place_id": "lift",
+      "name": { "en": "Lift", "ru": "Лифт" },
+      "background": "places/lift.webp",
+      "unlocked_by": "A1_WhereAreYouFrom_02",
+      "characters": ["lev"]
+    },
+    {
+      "place_id": "lobby",
+      "name": { "en": "Lobby", "ru": "Лобби" },
+      "background": "places/lobby.webp",
+      "unlocked_by": "A1_ThisIsMyRoom_03",
+      "characters": ["kai"]
+    },
+    {
+      "place_id": "cafe",
+      "name": { "en": "Night Café", "ru": "Night Café" },
+      "background": "places/cafe.webp",
+      "unlocked_by": "A1_NightCafe_04",
+      "characters": ["pip"]
     }
   ]
 }

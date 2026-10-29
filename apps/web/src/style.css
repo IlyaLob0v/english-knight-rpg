@@ -166,3 +166,13 @@ details.new-homework summary { cursor: pointer; color: var(--accent); padding: 8
 .report-errors { margin: 4px 0; padding-left: 20px; }
 .report-homework { overflow-wrap: anywhere; }
 .password-reset b { font-family: ui-monospace, monospace; }
+
+/* Teacher: the course content from the sheet */
+.sheet-form label.field { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+.sheet-form .steps { padding-left: 20px; margin: 4px 0 8px; }
+.sheet-form .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; }
+.sheet-form .actions button { flex: 1 1 140px; }
+.sheet-report ul { margin: 4px 0; padding-left: 20px; overflow-wrap: anywhere; }
+.sheet-report li { margin: 4px 0; }
+.sheet-ok { color: var(--good); }
+.content-link { display: flex; align-items: center; justify-content: space-between; gap: 10px; }

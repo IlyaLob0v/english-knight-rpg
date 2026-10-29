@@ -1,0 +1,80 @@
+{
+  "$schema": "../../../packages/content/schemas/episode.schema.json",
+  "schema_version": "2.0",
+  "episode_id": "A1_WhereAreYouFrom_02_lift",
+  "module_id": "A1_WhereAreYouFrom_02",
+  "place_id": "lift",
+  "title": { "en": "Which floor?", "ru": "Какой этаж?" },
+  "steps": [
+    {
+      "id": "arrive",
+      "kind": "line",
+      "speaker": "narrator",
+      "text": { "en": "The lift door opens with a long, sad squeak.", "ru": "Дверь лифта открывается с долгим печальным скрипом." }
+    },
+    {
+      "id": "hi",
+      "kind": "line",
+      "speaker": "lev",
+      "text": { "en": "Good evening. I'm Lev. Which floor?", "ru": "Добрый вечер. Я Лев. Какой этаж?" }
+    },
+    { "id": "ask", "kind": "task", "task_id": "A1_WhereAreYouFrom_02_where_from", "speaker": "lev", "on_wrong": "ask_wrong" },
+    {
+      "id": "ask_ok",
+      "kind": "line",
+      "speaker": "lev",
+      "emotion": "happy",
+      "text": {
+        "en": "Me? I'm from Paris. I sat on Notre-Dame for three hundred years.",
+        "ru": "Я? Я из Парижа. Триста лет просидел на Нотр-Даме."
+      },
+      "next": "guest"
+    },
+    {
+      "id": "ask_wrong",
+      "kind": "line",
+      "speaker": "lev",
+      "emotion": "upset",
+      "text": {
+        "en": "\"Where you are from?\" Hm. In my century we asked politely. Again.",
+        "ru": "«Where you are from?» Хм. В моём веке спрашивали вежливо. Ещё раз."
+      },
+      "next": "ask"
+    },
+    {
+      "id": "guest",
+      "kind": "line",
+      "speaker": "narrator",
+      "text": { "en": "A tall lady with very good teeth steps in.", "ru": "В лифт входит высокая дама с очень хорошими зубами." }
+    },
+    { "id": "she", "kind": "task", "task_id": "A1_WhereAreYouFrom_02_she_is", "speaker": "lev", "on_wrong": "she_wrong" },
+    {
+      "id": "she_ok",
+      "kind": "line",
+      "speaker": "lev",
+      "emotion": "happy",
+      "text": { "en": "Exactly. And she is not a vampire. Officially.", "ru": "Именно. И она не вампир. Официально." },
+      "next": "neg"
+    },
+    {
+      "id": "she_wrong",
+      "kind": "line",
+      "speaker": "lev",
+      "emotion": "upset",
+      "text": { "en": "Careful. Grandma Vee hears everything. Try again.", "ru": "Осторожнее. Бабушка Ви всё слышит. Попробуйте ещё." },
+      "next": "she"
+    },
+    { "id": "neg", "kind": "task", "task_id": "A1_WhereAreYouFrom_02_isnt", "speaker": "lev" },
+    {
+      "id": "bye",
+      "kind": "line",
+      "speaker": "lev",
+      "emotion": "happy",
+      "text": {
+        "en": "Floor thirteen. Mind the gap: it is full of bats.",
+        "ru": "Тринадцатый этаж. Осторожно, зазор: там полно летучих мышей."
+      }
+    },
+    { "id": "end", "kind": "end" }
+  ]
+}

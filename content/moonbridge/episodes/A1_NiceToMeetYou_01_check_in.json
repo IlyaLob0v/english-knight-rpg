@@ -6,15 +6,69 @@
   "place_id": "reception",
   "title": { "en": "Check-in after midnight", "ru": "Заселение после полуночи" },
   "steps": [
-    { "id": "arrive", "kind": "line", "speaker": "narrator", "text": { "en": "Midnight. Rain. A hotel that is not on any map.", "ru": "Полночь. Дождь. Отель, которого нет ни на одной карте." } },
-    { "id": "greet", "kind": "task", "speaker": "rocco", "emotion": "happy", "task_id": "A1_NiceToMeetYou_01_hello", "on_wrong": "greet_wrong" },
-    { "id": "greet_ok", "kind": "line", "speaker": "rocco", "emotion": "happy", "text": { "en": "Polite! Humans are usually screaming by now.", "ru": "Вежливо! Обычно люди к этому моменту уже кричат." }, "next": "name" },
-    { "id": "greet_wrong", "kind": "line", "speaker": "rocco", "emotion": "upset", "text": { "en": "Leaving already? The door is locked until sunrise. Let's try again.", "ru": "Уже уходите? Дверь заперта до рассвета. Давайте ещё раз." }, "next": "greet" },
-    { "id": "name", "kind": "task", "speaker": "rocco", "task_id": "A1_NiceToMeetYou_01_my_name", "on_wrong": "name_wrong" },
-    { "id": "name_ok", "kind": "line", "speaker": "rocco", "emotion": "happy", "text": { "en": "Anna. Lovely. I write it on your key.", "ru": "Анна. Прекрасно. Пишу на вашем ключе." }, "next": "room" },
-    { "id": "name_wrong", "kind": "line", "speaker": "rocco", "emotion": "upset", "text": { "en": "\"Me Anna\"? I'll put you next to the trolls, you'll get on fine.", "ru": "«Мне Анна»? Поселю вас рядом с троллями, вы поладите." } },
-    { "id": "room", "kind": "task", "speaker": "rocco", "task_id": "A1_NiceToMeetYou_01_you_are" },
-    { "id": "bye", "kind": "line", "speaker": "rocco", "emotion": "happy", "text": { "en": "Room 13. Don't open the window at full moon. Nice to meet you!", "ru": "Номер 13. В полнолуние окно не открывайте. Приятно познакомиться!" } },
+    {
+      "id": "arrive",
+      "kind": "line",
+      "speaker": "narrator",
+      "text": { "en": "Midnight. Rain. A hotel that is not on any map.", "ru": "Полночь. Дождь. Отель, которого нет ни на одной карте." }
+    },
+    {
+      "id": "greet",
+      "kind": "task",
+      "task_id": "A1_NiceToMeetYou_01_hello",
+      "speaker": "rocco",
+      "emotion": "happy",
+      "on_wrong": "greet_wrong"
+    },
+    {
+      "id": "greet_ok",
+      "kind": "line",
+      "speaker": "rocco",
+      "emotion": "happy",
+      "text": { "en": "Polite! Humans are usually screaming by now.", "ru": "Вежливо! Обычно люди к этому моменту уже кричат." },
+      "next": "name"
+    },
+    {
+      "id": "greet_wrong",
+      "kind": "line",
+      "speaker": "rocco",
+      "emotion": "upset",
+      "text": {
+        "en": "Leaving already? The door is locked until sunrise. Let's try again.",
+        "ru": "Уже уходите? Дверь заперта до рассвета. Давайте ещё раз."
+      },
+      "next": "greet"
+    },
+    { "id": "name", "kind": "task", "task_id": "A1_NiceToMeetYou_01_my_name", "speaker": "rocco", "on_wrong": "name_wrong" },
+    {
+      "id": "name_ok",
+      "kind": "line",
+      "speaker": "rocco",
+      "emotion": "happy",
+      "text": { "en": "Anna. Lovely. I write it on your key.", "ru": "Анна. Прекрасно. Пишу на вашем ключе." },
+      "next": "room"
+    },
+    {
+      "id": "name_wrong",
+      "kind": "line",
+      "speaker": "rocco",
+      "emotion": "upset",
+      "text": {
+        "en": "\"Me Anna\"? I'll put you next to the trolls, you'll get on fine.",
+        "ru": "«Мне Анна»? Поселю вас рядом с троллями, вы поладите."
+      }
+    },
+    { "id": "room", "kind": "task", "task_id": "A1_NiceToMeetYou_01_you_are", "speaker": "rocco" },
+    {
+      "id": "bye",
+      "kind": "line",
+      "speaker": "rocco",
+      "emotion": "happy",
+      "text": {
+        "en": "Room 13. Don't open the window at full moon. Nice to meet you!",
+        "ru": "Номер 13. В полнолуние окно не открывайте. Приятно познакомиться!"
+      }
+    },
     { "id": "end", "kind": "end" }
   ]
 }

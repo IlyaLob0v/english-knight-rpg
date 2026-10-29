@@ -19,6 +19,7 @@ content/                     живой курс (правишь это, а не
   media/                     арт и записи: фоны мест, портреты, аудио для listen_type (шлюз раздаёт их по /content/media/…)
 packages/
   content/   @moonbridge/content   JSON Schema, типы, валидатор (ссылки, циклы, ветки эпизодов), сборка бандла
+             src/sheet/            курс как таблица .xlsx: выгрузка, загрузка, проверка с ошибками по-русски
              test/fixtures/content замороженный набор из трёх юнитов для тестов движка и шлюза
   learning/  @moonbridge/learning  проверка ответа, классификатор ошибок, FSRS на концептах, режим 1/3/7, журнал попыток
   xapi/      @moonbridge/xapi      профиль moonbridge-v1, builder statement'ов, клиент LRS, outbox с повторами
@@ -26,7 +27,8 @@ apps/
   web/       @moonbridge/web       платформа в браузере (PWA): вход и приглашения, «Сегодня» (занятие, домашка), сдача файла, кабинет преподавателя; раздел Moonbridge грузится отдельно по /moonbridge
   server/    @moonbridge/server    шлюз: аккаунты, группы, домашка и файлы, Content API, медиа, приём xAPI → LRS, прогресс, Postgres (migrations/); LTI 1.3 заморожен
 e2e/         @moonbridge/e2e       Playwright на экране телефона 390 px: эпизод и смена в Moonbridge; школа от приглашения до файла у преподавателя
-compose.yaml, docker/              локальный стенд: Postgres, LRS (Yet SQL LRS), Moodle 4.5 (заморожен)
+compose.yaml, docker/              локальный стенд для разработки: Postgres, LRS (Yet SQL LRS), Moodle 4.5 (заморожен)
+Dockerfile, deploy/stand/          стенд для пилота: шлюз, платформа за Caddy с HTTPS, Postgres, LRS (docs/stand.md)
 docs/adr/                          архитектурные решения
 ```
 
@@ -38,6 +40,8 @@ docs/adr/                          архитектурные решения
 pnpm install
 pnpm content:validate   # проверить контент (то же самое делает CI)
 pnpm content:bundle     # собрать dist/content-bundle.json
+pnpm content:export     # курс в таблицу dist/moonbridge-content.xlsx
+pnpm content:import <файл.xlsx | ссылка на Google Таблицу>   # таблицу обратно в content/*.json
 pnpm test               # все тесты
 pnpm typecheck
 pnpm check              # всё, что проверяет CI, одной командой
@@ -46,12 +50,26 @@ pnpm dev:web            # платформа на http://localhost:5173 (вме�
 pnpm e2e                # собрать платформу и пройти оба сценария в Chromium на экране 390 px (скриншоты в e2e/.artifacts/)
 pnpm e2e:school         # только школа: преподаватель, приглашение, файл, вход со второго телефона
 
+docker compose -f deploy/stand/compose.yaml --env-file deploy/stand/.env up -d --build   # стенд на сервере (docs/stand.md)
 pnpm lms:up             # стенд в Docker: Postgres, LRS, Moodle (docs/lms-setup.md)
 pnpm lrs:errors to_be.i_am   # ошибки по концепту за неделю из LRS
 pnpm lms:down
 ```
 
-## Как менять курс без кода
+## Курс в таблице
+
+Ксения ведёт курс в Google Таблице и публикует его сама, без Ильи ([ADR 0011](docs/adr/0011-content-sheet-and-stand.md)):
+
+1. «Кабинет преподавателя → Контент курса → Скачать таблицу» — весь курс одним .xlsx: листы «Юниты» (порядок строк = порядок юнитов в курсе), «Понятия», «Задания», «Эпизоды» (строка = шаг), «Места», плюс «Как заполнять» и «Справочник» с выпадающими списками.
+2. Таблицу открывают в Google Таблицах и дают доступ «Все, у кого есть ссылка — читатель».
+3. Там же, в «Контенте курса», вставляют ссылку (или загружают .xlsx) и жмут «Проверить». Ошибки приходят по-русски с листом и строкой: «Задания, строка 12: тип «выборр» не знаком». Когда ошибок нет, видно, какие юниты новые, изменены или убраны, и появляется «Опубликовать».
+4. После публикации ученики получают новый контент при следующем открытии платформы. Юниту, который изменился, шлюз сам поднимает `version`.
+
+Таблица заменяет юниты, задания, эпизоды и места. Таксономия ошибок, персонажи и гости дня остаются в репозитории. Опубликованная версия хранится в Postgres и переживает перезапуск; чтобы перенести её в репозиторий, Илья скачивает таблицу и выполняет `pnpm content:import <файл>`: JSON-файлы перепишутся в том же формате.
+
+Записи для `listen_type` пока не готовы, поэтому без файла в `content/media/audio/` телефон читает первый верный ответ голосом (Web Speech).
+
+## Как менять курс в JSON
 
 - **Переставить юниты** — правка `content/courses/<курс>.json`. Валидатор не даст поставить юнит раньше его `prerequisites`, а места Moonbridge открываются вслед за своими юнитами.
 - **Добавить задание** — запись в `content/tasks/<юнит>.json` и его id в `tasks` юнита. Убрать id из `tasks` — задание выключено, но не удалено.
@@ -110,6 +128,8 @@ pnpm lms:down
 - **xAPI → LRS**: каждая попытка = statement `answered` с типом ошибки, концептом и временем. Actor — псевдонимный `account`, без email. Id statement'а = id попытки, поэтому повторная отправка из офлайн-очереди не создаёт дублей. Шлюз держит очередь в Postgres и досылает её при сбое LRS.
 - **Прогресс**: бэкап прогресса ученика между устройствами.
 - **Журнал ответов**: шлюз сохраняет каждый `answered` из приёма xAPI в таблицу `attempts` (повторная отправка из офлайн-очереди не дублирует), отсюда считается кабинет преподавателя без запросов к LRS.
-- **Школа**: `/auth/login`, `/invites/:code` и `/invites/:code/join`, `/school/dashboard`, группы, приглашения и домашка преподавателя, `PUT /school/homework/:id/submission` (файл до 50 МБ телом запроса), скачивание по ссылке на 5 минут, `/school/review-queue` и оценка, `/school/groups/:id/progress`, `/school/students/:id/report?week=`, сброс пароля. Файлы лежат в `UPLOAD_DIR`.
+- **Контент из таблицы**: `GET /school/content`, `GET /school/content/sheet` (.xlsx), `POST /school/content/check` и `/publish` (файл .xlsx телом запроса или `{ "url": "<ссылка на Google Таблицу>" }`), только для преподавателей. Версии лежат в `content_versions`.
+- **Школа**: `/auth/login` (после 5 неверных паролей к одному логину или 30 с одного адреса за 15 минут — пауза, `429`), `/invites/:code` и `/invites/:code/join`, `/school/dashboard`, группы, приглашения и домашка преподавателя, `PUT /school/homework/:id/submission` (файл до 50 МБ телом запроса), скачивание по ссылке на 5 минут, `/school/review-queue` и оценка, `/school/groups/:id/progress`, `/school/students/:id/report?week=`, сброс пароля. Файлы лежат в бакете S3 (`S3_BUCKET`, на стенде — Yandex Object Storage) или, без него, в `UPLOAD_DIR`.
 - **Postgres**: без `DATABASE_URL` шлюз поднимает Postgres в своём процессе (PGlite) и всё забывает при перезапуске; в продакшене база обязательна. Миграции применяются при старте.
+- **Стенд**: `Dockerfile` и `deploy/stand/` — Postgres, LRS, шлюз и Caddy с HTTPS на одной машине в российском регионе; пошагово в [docs/stand.md](docs/stand.md).
 - **LTI 1.3 и AGS** (заморожено): код и тесты остаются на случай, если платформу понадобится открыть из внешней LMS. Стенд Moodle описан в [docs/lms-setup.md](docs/lms-setup.md).

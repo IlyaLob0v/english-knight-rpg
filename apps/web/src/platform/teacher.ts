@@ -51,6 +51,12 @@ export async function renderTeacher(root: HTMLElement, d: TeacherDeps): Promise<
       ...(queue ? [reviewQueue(queue, d, rerender)] : []),
       ...groups.map((g, i) => groupCard(g, dash!, progress[i], now, d, rerender)),
       newGroupForm(d, rerender, groups.length === 0),
+      el(
+        "section",
+        { class: "card content-link" },
+        el("div", {}, el("h2", {}, "Контент курса"), el("p", { class: "muted" }, "Юниты, задания и эпизоды Moonbridge — в таблице.")),
+        el("a", { class: "button", href: "/teacher/content", "data-link": "" }, "Открыть"),
+      ),
     ),
   );
 }

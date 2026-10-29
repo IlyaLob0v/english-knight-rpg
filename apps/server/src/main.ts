@@ -3,6 +3,8 @@ import { buildBundle, loadContentDir } from "@moonbridge/content/node";
 import { LrsClient, MemoryOutboxStore, Outbox, type StatementSink } from "@moonbridge/xapi";
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
+import { LiveContent } from "./content/live.js";
+import { ContentVersions } from "./content/versions.js";
 import { connectPostgres, memoryPostgres, migrate } from "./db/sql.js";
 import { PgGradeStore, PgIdentityStore, PgLoginStates, PgOutboxStore, PgProgressStore, PgScoreStore } from "./db/stores.js";
 import { GradeSync, MemoryGradeStore } from "./grades.js";
@@ -14,6 +16,7 @@ import { PlatformRegistry } from "./lti/platforms.js";
 import { MemoryProgressStore } from "./progress.js";
 import { MemoryScoreStore } from "./scores.js";
 import { DiskFileStore } from "./school/files.js";
+import { S3FileStore } from "./school/s3.js";
 import { SchoolStore } from "./school/store.js";
 import { SessionTokens } from "./session.js";
 
@@ -64,9 +67,14 @@ const grades = new GradeSync(stores.grades, platforms, new AgsClient(toolKeys), 
 const schoolDb = db ?? (await memoryPostgres());
 if (!db) await migrate(schoolDb);
 
+// The repository's content, unless a teacher has published a sheet since.
+const content = new LiveContent(buildBundle(result.content), source, new ContentVersions(schoolDb));
+await content.restore((m) => console.warn(m));
+
 const app = await buildApp({
   config,
-  bundle: buildBundle(result.content),
+  bundle: content.bundle,
+  content,
   outbox,
   tokens: new SessionTokens(config.sessionSecret, config.sessionTtlSeconds),
   platforms,
@@ -76,7 +84,7 @@ const app = await buildApp({
   scores: stores.scores,
   progress: stores.progress,
   toolKeys,
-  school: { store: new SchoolStore(schoolDb), files: new DiskFileStore(config.uploadDir) },
+  school: { store: new SchoolStore(schoolDb), files: config.s3 ? new S3FileStore(config.s3) : new DiskFileStore(config.uploadDir) },
 });
 log = (e, m) => app.log.warn({ err: e }, m);
 
@@ -91,6 +99,7 @@ app.addHook("onClose", async () => {
 for (const signal of ["SIGINT", "SIGTERM"] as const) process.once(signal, () => void app.close());
 
 if (!db) app.log.warn("DATABASE_URL is not set: accounts, sessions, grades and the xAPI queue live in memory and are lost on restart");
+app.log.info(config.s3 ? `homework files: bucket ${config.s3.bucket} at ${config.s3.endpoint}` : `homework files: ${config.uploadDir}`);
 if (!config.lrs) app.log.warn("LRS_ENDPOINT is not set: xAPI statements are queued but not delivered");
 if (!config.lti.privateKeyPem) app.log.warn("LTI_PRIVATE_KEY is not set: using an ephemeral tool key (dev only)");
 app.log.info(`LTI platforms: ${config.lti.platforms.map((p) => `${p.issuer} (${p.clientId})`).join(", ") || "none"}`);
