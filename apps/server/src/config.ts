@@ -28,6 +28,8 @@ export interface ServerConfig {
   lrs?: { endpoint: string; key: string; secret: string };
   /** Postgres for the gateway's state. Unset = in-memory stores (dev only: a restart forgets everything). */
   databaseUrl?: string;
+  /** Without DATABASE_URL: an in-process Postgres (PGlite) that keeps its data in this folder. */
+  pgliteDir?: string;
   lti: {
     platforms: PlatformConfig[];
     /** PEM (PKCS#8) RSA private key of the tool. Unset = an ephemeral key is generated (dev only). */
@@ -86,6 +88,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       ? { lrs: { endpoint: env.LRS_ENDPOINT, key: required(env, "LRS_KEY"), secret: required(env, "LRS_SECRET") } }
       : {}),
     ...(env.DATABASE_URL ? { databaseUrl: env.DATABASE_URL } : {}),
+    ...(env.PGLITE_DIR ? { pgliteDir: env.PGLITE_DIR } : {}),
     lti: {
       platforms: platforms ? (JSON.parse(platforms) as PlatformConfig[]) : [],
       ...(privateKeyPem ? { privateKeyPem } : {}),

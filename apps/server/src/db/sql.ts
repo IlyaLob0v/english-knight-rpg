@@ -37,10 +37,13 @@ export function connectPostgres(connectionString: string): PgSql {
   };
 }
 
-/** Postgres in this process (PGlite, WASM), for development without a database server. Forgets everything on exit. */
-export async function memoryPostgres(): Promise<PgSql> {
+/**
+ * Postgres in this process (PGlite, WASM), for development without a database server. In memory
+ * it forgets everything on exit; with `dataDir` it keeps the data in that folder.
+ */
+export async function memoryPostgres(dataDir?: string): Promise<PgSql> {
   const { PGlite } = await import("@electric-sql/pglite");
-  const db = new PGlite();
+  const db = new PGlite(dataDir);
   return {
     query: async <T>(text: string, params?: unknown[]) => ({ rows: (await db.query<T>(text, params)).rows }),
     exec: (text) => db.exec(text),

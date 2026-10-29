@@ -24,7 +24,8 @@
     "lms:down": "docker compose down",
     "lrs:errors": "pnpm --filter @moonbridge/server lrs:errors",
     "e2e:school": "pnpm build:web && pnpm --filter @moonbridge/e2e school",
-    "e2e:pilot": "pnpm build:web && pnpm --filter @moonbridge/e2e pilot"
+    "e2e:pilot": "pnpm build:web && pnpm --filter @moonbridge/e2e pilot",
+    "demo": "pnpm build:web && tsx scripts/demo.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
